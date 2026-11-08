@@ -21,6 +21,12 @@ jobs:
           php-version: '8.4'
           coverage: none
       - run: composer install --no-interaction --prefer-dist
+      # The views include the Vite build (public/build/manifest.json).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci && npm run build
       - run: cp .env.example .env && php artisan key:generate
       - run: php artisan test
       - run: vendor/bin/pint --test
