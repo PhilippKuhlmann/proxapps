@@ -2,6 +2,18 @@
 
 return [
 
+    'version' => '1.0.0',
+
+    /*
+    | PK95 Core mode (app protocol v1): PK95 Core starts this instance as a container and
+    | sets these variables. The own web interface is then off; Core uses /api/bridge.
+    */
+    'core' => [
+        'enabled' => in_array(env('PK95_CORE_MODE'), ['1', 1, true], true),
+        'url' => env('PK95_CORE_URL', ''),
+        'token' => env('PK95_CORE_TOKEN', ''),
+    ],
+
     /*
     | Directory holding the app catalog (catalog/<id>/app.yaml + install script).
     */

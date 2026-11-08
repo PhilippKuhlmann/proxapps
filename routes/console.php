@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\SetupController;
 use App\Jobs\CheckUpdates;
+use App\Support\Core;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -18,6 +19,9 @@ Artisan::command('inspire', function () {
 // Docker entrypoint: while no account exists, create (or re-print) the one-time code the
 // first-run page asks for; once an account exists, remove a left-over code file.
 Artisan::command('proxapps:setup-token', function () {
+    if (Core::enabled()) {
+        return; // PK95 Core manages this instance: no own account, no setup code
+    }
     $token = SetupController::ensureToken();
     if ($token !== null) {
         $this->line('==> Einrichtungscode: '.$token);
