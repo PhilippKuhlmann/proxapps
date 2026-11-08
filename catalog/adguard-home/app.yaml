@@ -65,6 +65,10 @@ updates:
 healthcheck:
   url: "http://{ip}:{WEB_PORT}/login.html"
   timeout: 120
+# PK95 Core: Ziel für den Reverse Proxy und Domain-Vorschlag.
+proxy:
+  url: "http://{ip}:{WEB_PORT}"
+  subdomain: adguard
 access:
   url: "http://{ip}:{WEB_PORT}/"
   user: "{ADMIN_USER}"

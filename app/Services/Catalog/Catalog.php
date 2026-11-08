@@ -219,6 +219,7 @@ class Catalog
             iconPath: $icon,
             path: $path,
             updates: $updates,
+            proxy: (array) ($raw['proxy'] ?? []),
         );
     }
 }

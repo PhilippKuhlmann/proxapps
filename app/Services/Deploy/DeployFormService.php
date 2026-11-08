@@ -9,6 +9,7 @@ use App\Models\NetworkProfile;
 use App\Services\Catalog\AppDefinition;
 use App\Services\Ipam;
 use App\Services\Proxmox\ProxmoxException;
+use App\Support\Core;
 use App\Support\Settings;
 
 /**
@@ -87,6 +88,10 @@ class DeployFormService
             'apt_upgrade' => (bool) ($settings['apt_upgrade'] ?? true),
             'destroy_on_failure' => (bool) ($settings['destroy_on_failure'] ?? false),
             'params' => $params,
+            // PK95 Core links the app to the proxy: subdomain suggestion from the catalog.
+            'subdomain' => $app->proxy ? (string) ($app->proxy['subdomain'] ?? $app->hostname) : '',
+            // Off: PK95 Core creates no proxy host (only the internal monitor).
+            'proxy' => (bool) $app->proxy,
         ];
 
         if ($cloneFrom && $cloneFrom->app_id === $app->id) {
@@ -114,6 +119,12 @@ class DeployFormService
             ]);
             foreach ((array) ($spec['params'] ?? []) as $k => $v) {
                 $values['params'][$k] = $v;
+            }
+            if (array_key_exists('subdomain', $spec)) {
+                $values['subdomain'] = (string) $spec['subdomain'];
+            }
+            if (array_key_exists('proxy', $spec)) {
+                $values['proxy'] = (bool) $spec['proxy'];
             }
         }
 
@@ -363,6 +374,22 @@ class DeployFormService
             }
         }
 
+        // Domain for PK95 Core (reverse proxy + monitoring); only apps with a proxy target.
+        $v['subdomain'] = $app->proxy ? strtolower(trim($str('subdomain'))) : '';
+        $v['proxy'] = $app->proxy && static::checkbox($input['proxy'] ?? null);
+        $domain = '';
+        if ($v['proxy'] && $v['subdomain'] !== '') {
+            if (! preg_match('/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/', $v['subdomain'])) {
+                $errors['subdomain'] = 'Nur Kleinbuchstaben, Ziffern, Punkte und Bindestriche.';
+            } else {
+                $domain = Core::domainFor($v['subdomain'], (string) (Core::context()['base_domain'] ?? ''));
+                $param = (string) ($app->proxy['domain_param'] ?? '');
+                if ($domain !== '' && $param !== '' && array_key_exists($param, $params) && trim((string) $params[$param]) === '') {
+                    $params[$param] = 'https://'.$domain;
+                }
+            }
+        }
+
         $static = $v['net_mode'] === 'static';
         $spec = [
             'app_id' => $app->id,
@@ -398,6 +425,9 @@ class DeployFormService
             'timezone' => Settings::get('timezone'),
             'pool' => $connection?->pool ?: null,
             'params' => $params,
+            'subdomain' => $v['subdomain'],
+            'proxy' => $v['proxy'],
+            'domain' => $domain,
         ];
         $secrets = ['root_password' => $rootPassword, 'params' => $secretParams];
 

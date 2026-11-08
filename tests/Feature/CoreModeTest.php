@@ -5,6 +5,9 @@ namespace Tests\Feature;
 use App\Jobs\SendCoreEvent;
 use App\Models\Connection;
 use App\Models\Deployment;
+use App\Services\Catalog\Catalog;
+use App\Services\Deploy\DeployFormService;
+use App\Support\Core;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
@@ -118,6 +121,19 @@ class CoreModeTest extends FeatureTestCase
         $this->assertTrue($toggled->json('state.showSecrets'));
     }
 
+    public function test_bridge_reports_the_removal_steps(): void
+    {
+        $this->coreMode();
+        $d = Deployment::factory()->create(['status' => 'removing', 'step' => 'r_destroy']);
+        $view = $this->bridge('deployment', ['mount' => ['deployment' => $d->id]])->assertOk()->json('view');
+        $this->assertSame(['r_check' => 'done', 'r_stop' => 'done', 'r_destroy' => 'active', 'r_cleanup' => 'pending'], $view['removeStepStates']);
+        $this->assertSame('Container löschen', $view['removeSteps'][2][1]);
+
+        $d->forceFill(['status' => 'success', 'step' => 'done', 'result' => ['removal_error' => 'kaputt', 'removal_step' => 'r_stop']])->saveQuietly();
+        $view = $this->bridge('deployment', ['mount' => ['deployment' => $d->id]])->json('view');
+        $this->assertSame('error', $view['removeStepStates']['r_stop']);
+    }
+
     public function test_finished_deployments_are_reported_to_core(): void
     {
         $this->coreMode();
@@ -130,6 +146,51 @@ class CoreModeTest extends FeatureTestCase
             && $job->event['severity'] === 'critical'
             && $job->event['title'] === 'Ausrollen von AdGuard Home auf dns (CT 250053) fehlgeschlagen'
             && $job->event['body'] === 'SSH nicht erreichbar');
+    }
+
+    public function test_success_and_removal_carry_what_core_needs_to_link_the_app(): void
+    {
+        $this->coreMode();
+        Queue::fake();
+        $d = Deployment::factory()->create(['status' => 'running', 'app_id' => 'vaultwarden', 'app_name' => 'Vaultwarden', 'hostname' => 'vault',
+            'vmid' => 250060, 'ip' => '10.0.0.60', 'spec' => ['domain' => 'vault.example.de']]);
+
+        $d->forceFill(['status' => 'success', 'result' => ['proxy_url' => 'http://10.0.0.60:8000']])->save();
+        $d->forceFill(['status' => 'removed'])->save();
+
+        Queue::assertPushed(SendCoreEvent::class, fn (SendCoreEvent $job) => $job->event['type'] === 'deployment.succeeded'
+            && $job->event['data'] === ['deploymentId' => $d->id, 'appId' => 'vaultwarden', 'appName' => 'Vaultwarden', 'hostname' => 'vault',
+                'vmid' => 250060, 'ip' => '10.0.0.60', 'domain' => 'vault.example.de', 'proxy' => true, 'proxyUrl' => 'http://10.0.0.60:8000']);
+        Queue::assertPushed(SendCoreEvent::class, fn (SendCoreEvent $job) => $job->event['type'] === 'deployment.removed'
+            && $job->event['data']['domain'] === 'vault.example.de');
+    }
+
+    public function test_domain_from_core_base_domain_fills_the_domain_parameter(): void
+    {
+        $this->coreMode();
+        Http::fake(['core.test/api/v1/context' => Http::response(['base_domain' => 'example.de', 'proxy' => true, 'uptime' => true])]);
+
+        $this->assertSame('cloud.example.de', Core::domainFor('Cloud', 'example.de'));
+        $this->assertSame('cloud.andere.de', Core::domainFor('cloud.andere.de', 'example.de'));
+        $this->assertSame('', Core::domainFor('cloud', ''));
+        $this->assertSame('example.de', Core::context()['base_domain']);
+
+        $app = app(Catalog::class)->get('vaultwarden');
+        $form = app(DeployFormService::class);
+        $this->assertSame('vault', $form->defaults($app)['subdomain']);
+        $result = $form->validate($app, ['subdomain' => 'tresor'] + $form->defaults($app));
+        $this->assertSame('tresor.example.de', $result['spec']['domain']);
+        $this->assertSame('https://tresor.example.de', $result['spec']['params']['DOMAIN']);
+
+        // proxy entry switched off: no domain, the parameter stays empty
+        $off = $form->validate($app, ['subdomain' => 'tresor', 'proxy' => false] + $form->defaults($app));
+        $this->assertSame('', $off['spec']['domain']);
+        $this->assertFalse($off['spec']['proxy']);
+        $this->assertSame('', $off['spec']['params']['DOMAIN']);
+
+        $bad = $form->validate($app, ['subdomain' => 'kein gültiger name'] + $form->defaults($app));
+        $this->assertArrayHasKey('subdomain', $bad['errors']);
+        $this->assertSame('cloud', $form->defaults(app(Catalog::class)->get('nextcloud-aio'))['subdomain']);
     }
 
     public function test_event_job_posts_with_the_token_and_retries_on_server_errors(): void

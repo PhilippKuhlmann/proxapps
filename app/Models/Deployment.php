@@ -41,7 +41,16 @@ class Deployment extends Model
     /** @use HasFactory<DeploymentFactory> */
     use HasFactory;
 
-    public const ACTIVE = ['queued', 'running'];
+    /** "removing": the container is being removed (job RemoveContainer); blocks VMID, IP and actions. */
+    public const ACTIVE = ['queued', 'running', 'removing'];
+
+    /** Steps of removing a container (status "removing", step r_*). */
+    public const REMOVE_STEPS = [
+        ['r_check', 'Prüfungen'],
+        ['r_stop', 'Container stoppen'],
+        ['r_destroy', 'Container löschen'],
+        ['r_cleanup', 'Aufräumen'],
+    ];
 
     public const FINAL = ['success', 'failed', 'cancelled', 'removed'];
 

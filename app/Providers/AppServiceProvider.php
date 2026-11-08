@@ -27,6 +27,30 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
+     * Event data PK95 Core needs to link a deployment with the proxy and monitoring.
+     *
+     * @return array<string, mixed>
+     */
+    public static function linkData(Deployment $d): array
+    {
+        $spec = (array) $d->spec;
+        $result = (array) $d->result;
+
+        return [
+            'deploymentId' => $d->id,
+            'appId' => $d->app_id,
+            'appName' => $d->app_name,
+            'hostname' => $d->hostname,
+            'vmid' => $d->vmid,
+            'ip' => $d->ip,
+            'domain' => (string) ($spec['domain'] ?? ''),
+            // false: the proxy entry was switched off in the deploy form.
+            'proxy' => (bool) ($spec['proxy'] ?? true),
+            'proxyUrl' => (string) ($result['proxy_url'] ?? ''),
+        ];
+    }
+
+    /**
      * Bootstrap any application services.
      */
     public function boot(): void
@@ -38,9 +62,11 @@ class AppServiceProvider extends ServiceProvider
             }
             $where = $d->hostname.($d->vmid ? " (CT {$d->vmid})" : '');
             match ($d->status) {
-                'success' => SendCoreEvent::send('deployment.succeeded', 'info', "{$d->app_name} auf {$where} ausgerollt", $d->ip ? "IP {$d->ip}" : null, ['deploymentId' => $d->id]),
+                'success' => SendCoreEvent::send('deployment.succeeded', 'info', "{$d->app_name} auf {$where} ausgerollt", $d->ip ? "IP {$d->ip}" : null, self::linkData($d)),
                 'failed' => SendCoreEvent::send('deployment.failed', 'critical', "Ausrollen von {$d->app_name} auf {$where} fehlgeschlagen", $d->error, ['deploymentId' => $d->id]),
                 'cancelled' => SendCoreEvent::send('deployment.cancelled', 'warning', "Ausrollen von {$d->app_name} auf {$where} abgebrochen", null, ['deploymentId' => $d->id]),
+                // Container removed: PK95 Core deletes the proxy host and monitors it created.
+                'removed' => SendCoreEvent::send('deployment.removed', 'info', "{$d->app_name} auf {$where} entfernt", null, self::linkData($d)),
                 default => null,
             };
         });

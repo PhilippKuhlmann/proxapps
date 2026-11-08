@@ -85,6 +85,10 @@ updates:
 healthcheck:
   url: "https://{ip}:8080/"
   timeout: 300
+# PK95 Core: Ziel für den Reverse Proxy (Apache im Reverse-Proxy-Modus) und Domain-Vorschlag.
+proxy:
+  url: "http://{ip}:{APACHE_PORT}"
+  subdomain: cloud
 access:
   url: "https://{ip}:8080/"
   user: ""

@@ -258,6 +258,8 @@ class DeploymentRunner
                 'user' => ! empty($access['user']) ? Catalog::render((string) $access['user'], $context) : '',
                 'password_param' => $access['password_param'] ?? null,
                 'notes' => Catalog::render($app->notes, $context),
+                // PK95 Core puts this behind the reverse proxy (deployment.succeeded).
+                'proxy_url' => ! empty($app->proxy['url']) ? Catalog::render((string) $app->proxy['url'], $context) : '',
                 // Remembered for later SSH sessions (central updates verify the same host key).
                 'host_keys' => $this->hostKeys,
             ];

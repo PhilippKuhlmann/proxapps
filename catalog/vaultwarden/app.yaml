@@ -79,6 +79,12 @@ updates:
 healthcheck:
   url: "{HEALTH_URL}"
   timeout: 180
+# PK95 Core: Ziel für den Reverse Proxy (meldet install.sh), Domain-Vorschlag und Parameter,
+# der die Domain bekommt, wenn er leer bleibt.
+proxy:
+  url: "{UPSTREAM_URL}"
+  subdomain: vault
+  domain_param: DOMAIN
 access:
   url: "{ACCESS_URL}"
   user: ""

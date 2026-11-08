@@ -2,7 +2,9 @@
 
 namespace Tests\Unit;
 
+use App\Jobs\RemoveContainer;
 use App\Jobs\RunDeployment;
+use App\Jobs\SendCoreEvent;
 use App\Models\Connection;
 use App\Models\Deployment;
 use App\Services\Catalog\Catalog;
@@ -22,6 +24,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Queue;
 use Mockery;
 use Mockery\MockInterface;
 use phpseclib3\Net\SSH2;
@@ -202,6 +205,7 @@ class DeploymentRunnerTest extends TestCase
             'url' => 'http://192.0.2.53:80/', 'user' => 'admin', 'password_param' => 'ADMIN_PASS',
             'notes' => 'Trage 192.0.2.53 als DNS-Server in deinem Router bzw. DHCP-Server ein, damit alle'
                 ."\nGeräte über AdGuard Home auflösen. Updates spielt ProxApps zentral ein (Seite „Updates“).",
+            'proxy_url' => 'http://192.0.2.53:80',
             'host_keys' => [self::FP_ED25519, self::FP_RSA],
         ], $d->result);
 
@@ -540,15 +544,47 @@ class DeploymentRunnerTest extends TestCase
     {
         $d = $this->deployment([], ['status' => 'success', 'result' => ['container_created' => true]]);
         $this->pve->shouldReceive('lxcConfig')->andReturn($this->ownedConfig($d));
+        $this->pve->shouldReceive('lxcStatus')->andReturn(['status' => 'running']);
+        $this->pve->shouldReceive('lxcAction')->once()->with('pve1', $d->vmid, 'stop')->andReturn('UPID:pve1:stop');
         $this->pve->shouldReceive('lxcDestroy')->once()->andReturn('UPID:pve1:destroy');
         $this->pve->shouldReceive('waitTask')->andReturn(['ok' => true, 'exitstatus' => 'OK', 'log' => []]);
 
-        app(ContainerManager::class)->destroy($d);
+        $steps = [];
+        app(ContainerManager::class)->destroy($d, function (string $step) use (&$steps) {
+            $steps[] = $step;
+        });
 
         $d->refresh();
+        $this->assertSame(['r_check', 'r_stop', 'r_destroy', 'r_cleanup'], $steps);
         $this->assertSame('removed', $d->status);
         $this->assertSame(['container_created' => true, 'container_removed' => true], $d->result);
         $this->assertContains("Container {$d->vmid} wurde entfernt.", $this->messages($d));
+    }
+
+    public function test_remove_job_runs_the_steps_and_restores_the_status_on_failure(): void
+    {
+        Queue::fake();
+        $d = $this->deployment([], ['status' => 'success', 'step' => 'done', 'result' => ['container_created' => true]]);
+        RemoveContainer::start($d);
+        $d->refresh();
+        $this->assertSame(['removing', 'r_check'], [$d->status, $d->step]);
+        $this->assertTrue($d->isActive(), 'blocks VMID, IP and actions');
+        Queue::assertPushed(RemoveContainer::class, fn ($job) => $job->previousStatus === 'success');
+
+        // the stop fails: back to "success", the step that failed is remembered
+        $this->pve->shouldReceive('lxcConfig')->andReturn($this->ownedConfig($d));
+        $this->pve->shouldReceive('lxcStatus')->andReturn(['status' => 'running']);
+        $this->pve->shouldReceive('lxcAction')->andReturn('UPID:pve1:stop');
+        $this->pve->shouldReceive('waitTask')->andReturn(['ok' => false, 'exitstatus' => 'timeout', 'log' => []]);
+        $this->pve->shouldNotReceive('lxcDestroy');
+        (new RemoveContainer($d->id, 'success'))->handle(app(ContainerManager::class));
+
+        $d->refresh();
+        $this->assertSame(['success', 'done'], [$d->status, $d->step]);
+        $this->assertSame('r_stop', $d->result['removal_step']);
+        $this->assertStringContainsString('Stoppen fehlgeschlagen', $d->result['removal_error']);
+        // the restored status is no new deployment result: no event to Core
+        Queue::assertNotPushed(SendCoreEvent::class);
     }
 
     public function test_container_manager_refuses_container_of_an_older_deployment(): void

@@ -40,6 +40,13 @@ final class AppDefinition
         public readonly string $path = '',
         /** @var array{script: ?string, installed_version: string, latest_version: array{url: string, json: string}} */
         public readonly array $updates = ['script' => null, 'installed_version' => '', 'latest_version' => ['url' => '', 'json' => '']],
+        /**
+         * Reverse proxy target for PK95 Core: url (placeholders like access.url), subdomain
+         * (suggestion, default hostname), domain_param (parameter filled with https://<domain>).
+         *
+         * @var array{url?: string, subdomain?: string, domain_param?: string}
+         */
+        public readonly array $proxy = [],
     ) {}
 
     public function hasAppUpdate(): bool

@@ -42,6 +42,9 @@ class BridgeSerializer
         if ($component instanceof Show) {
             $out['stepStates'] = collect(DeployFormService::STEPS)
                 ->mapWithKeys(fn (array $step) => [$step[0] => $component->stepState($step[0])])->all();
+            $out['removeSteps'] = Deployment::REMOVE_STEPS;
+            $out['removeStepStates'] = collect(Deployment::REMOVE_STEPS)
+                ->mapWithKeys(fn (array $step) => [$step[0] => $component->removeStepState($step[0])])->all();
         }
         if ($component instanceof Deploy) {
             $out['templateChoices'] = self::value($component->templateChoices());

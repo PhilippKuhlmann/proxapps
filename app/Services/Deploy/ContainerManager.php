@@ -110,25 +110,49 @@ class ContainerManager
         DeploymentLogger::log($d, "Container-Aktion '{$action}' ausgeführt.", 'info', 'manage');
     }
 
-    public function destroy(Deployment $d): void
+    /**
+     * Remove the container step by step (Deployment::REMOVE_STEPS). $step is called when a
+     * step begins; the deployment ends in status "removed" (that sends deployment.removed).
+     *
+     * @param  (callable(string): void)|null  $step
+     */
+    public function destroy(Deployment $d, ?callable $step = null): void
     {
+        $begin = function (string $key, string $message) use ($d, $step) {
+            $step && $step($key);
+            DeploymentLogger::log($d, $message, 'step', $key);
+        };
+
+        $begin('r_check', 'Prüfe, ob der Container noch zu diesem Deployment gehört …');
         $client = $this->client($d);
         if (! static::owned($client, $d)) {
             throw new DeployException(rtrim(static::notOwnedMessage($d), '.').' – aus Sicherheitsgründen nicht entfernt.');
         }
-        DeploymentLogger::log($d, "Entferne Container {$d->vmid} auf {$d->node} …", 'step', 'destroy');
-        $upid = $client->lxcDestroy($d->node, (int) $d->vmid);
-        $res = $client->waitTask($upid, 300, function (string $line) use ($d) {
-            DeploymentLogger::log($d, $line, 'task', 'destroy');
-        });
-        if (! $res['ok']) {
-            throw new DeployException("Entfernen fehlgeschlagen: {$res['exitstatus']}");
+
+        $begin('r_stop', "Stoppe Container {$d->vmid} …");
+        if ((($client->lxcStatus($d->node, (int) $d->vmid))['status'] ?? '') === 'running') {
+            $res = $client->waitTask($client->lxcAction($d->node, (int) $d->vmid, 'stop'), 180,
+                fn (string $line) => DeploymentLogger::log($d, $line, 'task', 'r_stop'));
+            if (! $res['ok']) {
+                throw new DeployException("Stoppen fehlgeschlagen: {$res['exitstatus']}");
+            }
+        } else {
+            DeploymentLogger::log($d, 'Container läuft nicht.', 'info', 'r_stop');
         }
+
+        $begin('r_destroy', "Lösche Container {$d->vmid} samt Disks auf {$d->node} …");
+        $res = $client->waitTask($client->lxcDestroy($d->node, (int) $d->vmid), 300,
+            fn (string $line) => DeploymentLogger::log($d, $line, 'task', 'r_destroy'));
+        if (! $res['ok']) {
+            throw new DeployException("Löschen fehlgeschlagen: {$res['exitstatus']}");
+        }
+
+        $begin('r_cleanup', 'Gebe VMID und IP frei …');
         if ($d->connection_id) {
             $this->ipam->invalidate((int) $d->connection_id);
         }
         $result = array_merge((array) ($d->result ?? []), ['container_removed' => true]);
         $d->forceFill(['status' => 'removed', 'step' => 'removed', 'result' => $result])->save();
-        DeploymentLogger::log($d, "Container {$d->vmid} wurde entfernt.", 'success', 'destroy');
+        DeploymentLogger::log($d, "Container {$d->vmid} wurde entfernt.", 'success', 'r_cleanup');
     }
 }

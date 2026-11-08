@@ -4,6 +4,7 @@ namespace App\Livewire\Deployments;
 
 use App\Http\Support\Format;
 use App\Jobs\CheckUpdates;
+use App\Jobs\RemoveContainer;
 use App\Models\Deployment;
 use App\Models\DeploymentLog;
 use App\Models\UpdateRun;
@@ -83,6 +84,11 @@ class Show extends Component
     public function cancel(): void
     {
         $this->deployment->refresh();
+        if ($this->deployment->status === 'removing') {
+            $this->dispatch('notice', kind: 'error', text: 'Das Entfernen lässt sich nicht abbrechen.');
+
+            return;
+        }
         if (! $this->deployment->isActive()) {
             $this->dispatch('notice', kind: 'error', text: 'Das Deployment läuft nicht mehr.');
 
@@ -132,13 +138,36 @@ class Show extends Component
 
             return;
         }
-        try {
-            $manager->destroy($d);
-            $this->dispatch('notice', kind: 'success', text: "Container {$d->vmid} wurde entfernt.");
-        } catch (Throwable $e) {
-            $this->dispatch('notice', kind: 'error', text: $e->getMessage());
-        }
+        RemoveContainer::start($d);
+        $this->dispatch('notice', kind: 'success', text: "Container {$d->vmid} wird entfernt …");
         $this->refreshLive();
+    }
+
+    /**
+     * Step state of the removal tracker: done / active / error / pending.
+     */
+    public function removeStepState(string $key): string
+    {
+        $d = $this->deployment;
+        $order = array_column(Deployment::REMOVE_STEPS, 0);
+        $idx = array_search($key, $order, true);
+        if ($d->status === 'removed') {
+            return 'done';
+        }
+        $result = (array) ($d->result ?? []);
+        $failedAt = ! empty($result['removal_error']) ? array_search($result['removal_step'] ?? '', $order, true) : false;
+        $cur = $d->status === 'removing' ? array_search($d->step, $order, true) : $failedAt;
+        if ($cur === false) {
+            return 'pending';
+        }
+        if ($idx < $cur) {
+            return 'done';
+        }
+        if ($idx === $cur) {
+            return $d->status === 'removing' ? 'active' : 'error';
+        }
+
+        return 'pending';
     }
 
     public function deleteEntry()
