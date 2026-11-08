@@ -21,6 +21,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Core mode: the own web interface is off (prepend: before session and login redirects).
         $middleware->web(prepend: [CoreModeBlocksWeb::class]);
+        // The bridge carries Livewire state from PK95 Core verbatim: "" must stay "" (typed
+        // string properties) and secrets must not be trimmed.
+        $isBridge = fn (Request $request) => $request->is('api/bridge/*');
+        $middleware->convertEmptyStringsToNull(except: [$isBridge]);
+        $middleware->trimStrings(except: [$isBridge]);
         // A fresh installation has no account yet: send everybody to the first-run page.
         $middleware->redirectGuestsTo(fn () => User::query()->exists() ? route('login') : route('setup'));
         $middleware->redirectUsersTo('/');

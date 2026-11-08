@@ -90,6 +90,19 @@ class CoreModeTest extends FeatureTestCase
         $this->bridge('deploy', ['state' => $state, 'call' => ['method' => 'render']])->assertStatus(400);
     }
 
+    public function test_bridge_keeps_empty_and_untrimmed_strings(): void
+    {
+        $this->coreMode();
+        $state = $this->bridge('connection-form', ['mount' => ['connection' => null]])->assertOk()->json('state');
+        $this->assertSame('', $state['pool']);
+
+        // "" stays "" (typed string property), secrets keep their spaces
+        $state['token_secret'] = ' geheim ';
+        $this->bridge('connection-form', ['state' => $state, 'updated' => 'tls_mode'])->assertOk()
+            ->assertJsonPath('state.pool', '')
+            ->assertJsonPath('state.token_secret', ' geheim ');
+    }
+
     public function test_bridge_passes_models_and_their_data(): void
     {
         $this->coreMode();
