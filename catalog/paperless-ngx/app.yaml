@@ -1,0 +1,95 @@
+id: paperless-ngx
+name: Paperless-ngx
+summary: Dokumente scannen, per OCR durchsuchbar machen und automatisch ablegen.
+description: |
+  Paperless-ngx verwandelt Papier und PDFs in ein durchsuchbares Archiv: Texterkennung (OCR),
+  automatische Zuordnung von Korrespondenten, Dokumenttypen und Tags, Volltextsuche und eine
+  Weboberfläche samt App. ProxApps installiert Paperless mit PostgreSQL und Redis per Docker
+  Compose; auf Wunsch kommen Tika und Gotenberg für Office-Dokumente und E-Mails dazu.
+category: Produktivität
+version: latest
+website: https://docs.paperless-ngx.com
+source: https://github.com/paperless-ngx/paperless-ngx
+hostname: paperless
+os:
+  template: debian-13-standard
+resources:
+  cores: 2
+  memory: 3072
+  swap: 1024
+  disk: 32
+lxc:
+  unprivileged: true
+  nesting: true
+  onboot: true
+tags: [paperless, dokumente, docker]
+parameters:
+  - key: ADMIN_USER
+    label: Admin-Benutzer
+    type: text
+    default: admin
+    required: true
+    pattern: '^[A-Za-z0-9._@-]{1,64}$'
+  - key: ADMIN_PASS
+    label: Admin-Passwort
+    type: password
+    required: true
+    generate: true
+    min_length: 10
+    help: Leer lassen, um ein sicheres Passwort zu erzeugen.
+  - key: OCR_LANGUAGE
+    label: OCR-Sprachen
+    type: text
+    default: deu+eng
+    pattern: '^[a-z_]{3,8}(\+[a-z_]{3,8})*$'
+    help: Tesseract-Sprachen, mit + verbunden (deu+eng). Deutsch und Englisch sind im Image enthalten.
+  - key: OFFICE
+    label: Office-Dokumente und E-Mails
+    type: boolean
+    default: false
+    help: Startet zusätzlich Tika und Gotenberg (Word, Excel, .eml). Braucht rund 1 GB mehr RAM.
+  - key: PAPERLESS_URL
+    label: Öffentliche Adresse (optional)
+    type: text
+    pattern: '^https?://[A-Za-z0-9.-]+(:[0-9]+)?$'
+    help: z. B. https://paperless.example.de – nötig für die Anmeldung über den Reverse Proxy.
+  - key: WEB_PORT
+    label: Port
+    type: number
+    default: 8000
+    min: 1024
+    max: 65535
+    help: Port der Weboberfläche im Container-LXC (Ziel für den Reverse Proxy).
+  - key: DOCKER_MTU
+    label: Docker-MTU (optional)
+    type: number
+    min: 1280
+    max: 9000
+    help: Nur bei kleinerer Internet-MTU setzen (z. B. 1492 bei PPPoE).
+ports:
+  - port: "{WEB_PORT}"
+    proto: tcp
+    label: Paperless-Weboberfläche
+install: install.sh
+updates:
+  script: update.sh
+  installed_version: "docker inspect --format '{{index .Config.Labels \"org.opencontainers.image.version\"}}' paperless"
+  latest_version:
+    url: https://api.github.com/repos/paperless-ngx/paperless-ngx/releases/latest
+    json: tag_name
+healthcheck:
+  url: "http://{ip}:{WEB_PORT}/accounts/login/"
+  timeout: 600
+# PK95 Core: Ziel für den Reverse Proxy, Domain-Vorschlag und Parameter für die Domain.
+proxy:
+  url: "http://{ip}:{WEB_PORT}"
+  subdomain: paperless
+  domain_param: PAPERLESS_URL
+access:
+  url: "http://{ip}:{WEB_PORT}/"
+  user: "{ADMIN_USER}"
+  password_param: ADMIN_PASS
+notes: |
+  Melde dich mit dem Konto oben an. Dokumente landen über die Weboberfläche, die App oder den
+  Eingangsordner /opt/paperless/consume im Container im Archiv (z. B. per SMB-Freigabe oder Scanner).
+  Daten: /opt/paperless (Dokumente, Datenbank, Index) – vor jedem Update legt ProxApps einen Snapshot an.

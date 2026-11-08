@@ -1,0 +1,80 @@
+id: node-red
+name: Node-RED
+summary: Automationen und Datenflüsse im Browser zusammenklicken – ideal neben Home Assistant.
+description: |
+  Node-RED verbindet Geräte, Dienste und APIs über Flows, die du im Browser aus Bausteinen
+  zusammensetzt. Zusammen mit Home Assistant (Paket node-red-contrib-home-assistant-websocket)
+  oder MQTT lassen sich auch komplexe Automationen übersichtlich bauen. ProxApps installiert
+  Node-RED als Docker-Container und schützt den Editor mit einem Admin-Konto.
+category: Smart Home
+version: latest
+website: https://nodered.org
+source: https://github.com/node-red/node-red
+hostname: nodered
+os:
+  template: debian-13-standard
+resources:
+  cores: 1
+  memory: 1024
+  swap: 512
+  disk: 8
+lxc:
+  unprivileged: true
+  nesting: true
+  onboot: true
+tags: [nodered, smarthome, docker]
+parameters:
+  - key: ADMIN_USER
+    label: Admin-Benutzer
+    type: text
+    default: admin
+    required: true
+    pattern: '^[A-Za-z0-9._@-]{1,64}$'
+    help: Anmeldename für den Editor.
+  - key: ADMIN_PASS
+    label: Admin-Passwort
+    type: password
+    required: true
+    generate: true
+    min_length: 10
+    help: Leer lassen, um ein sicheres Passwort zu erzeugen.
+  - key: WEB_PORT
+    label: Port
+    type: number
+    default: 1880
+    min: 1024
+    max: 65535
+    help: Port des Editors im Container-LXC (Ziel für den Reverse Proxy).
+  - key: DOCKER_MTU
+    label: Docker-MTU (optional)
+    type: number
+    min: 1280
+    max: 9000
+    help: Nur bei kleinerer Internet-MTU setzen (z. B. 1492 bei PPPoE), sonst schlagen Paket-Installationen im Editor fehl.
+ports:
+  - port: "{WEB_PORT}"
+    proto: tcp
+    label: Node-RED-Editor
+install: install.sh
+updates:
+  script: update.sh
+  installed_version: "docker exec node-red node -p \"require('/usr/src/node-red/node_modules/node-red/package.json').version\""
+  latest_version:
+    url: https://api.github.com/repos/node-red/node-red/releases/latest
+    json: tag_name
+healthcheck:
+  url: "http://{ip}:{WEB_PORT}/"
+  timeout: 180
+# PK95 Core: Ziel für den Reverse Proxy und Domain-Vorschlag.
+proxy:
+  url: "http://{ip}:{WEB_PORT}"
+  subdomain: nodered
+access:
+  url: "http://{ip}:{WEB_PORT}/"
+  user: "{ADMIN_USER}"
+  password_param: ADMIN_PASS
+notes: |
+  Melde dich mit dem Konto oben im Editor an. Für Home Assistant installiere unter
+  „Palette verwalten“ das Paket node-red-contrib-home-assistant-websocket und trage einen
+  Langzeit-Zugriffstoken aus deinem Home-Assistant-Profil ein.
+  Flows und installierte Pakete liegen in /opt/node-red/data – vor jedem Update legt ProxApps einen Snapshot an.

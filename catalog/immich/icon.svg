@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Generic photo icon (picture with sun and hills), not the Immich logo -->
+  <rect width="64" height="64" rx="14" fill="#4250af"/>
+  <rect x="12" y="16" width="40" height="32" rx="4" fill="#fff"/>
+  <circle cx="23" cy="26" r="4" fill="#fa2921"/>
+  <path d="M12 44l12-12 9 9 6-6 13 13v0a4 4 0 0 1-4 0H16a4 4 0 0 1-4-4z" fill="#18c249"/>
+  <path d="M12 44l12-12 9 9" fill="none" stroke="#fff" stroke-width="1"/>
+</svg>

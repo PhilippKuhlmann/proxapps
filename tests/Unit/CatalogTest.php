@@ -8,6 +8,39 @@ use Tests\TestCase;
 
 class CatalogTest extends TestCase
 {
+    public function test_every_bundled_app_is_complete(): void
+    {
+        $catalog = app(Catalog::class);
+        $this->assertSame([], $catalog->errors());
+        $ids = array_map(fn ($app) => $app->id, array_values($catalog->all()));
+        foreach (['adguard-home', 'nextcloud-aio', 'vaultwarden', 'node-red', 'paperless-ngx', 'immich'] as $id) {
+            $this->assertContains($id, $ids);
+        }
+
+        foreach ($catalog->all() as $app) {
+            $id = $app->id;
+            $this->assertNotNull($app->iconPath, "{$id}: icon");
+            $this->assertNotSame([], $app->healthcheck, "{$id}: healthcheck");
+            // PK95 Core puts every app with a web interface behind the proxy.
+            $this->assertMatchesRegularExpression('~^(https?://\{ip\}:\{[A-Z_]+\}|https?://\{ip\}:\d+|\{[A-Z_]+\})$~', $app->proxy['url'] ?? '', "{$id}: proxy.url");
+            $this->assertMatchesRegularExpression('~^[a-z0-9-]+$~', $app->proxy['subdomain'] ?? '', "{$id}: proxy.subdomain");
+            if (isset($app->proxy['domain_param'])) {
+                $this->assertNotNull($app->param($app->proxy['domain_param']), "{$id}: proxy.domain_param");
+            }
+            // The scripts run with "set -euo pipefail" over SSH: they must at least parse.
+            foreach (['install' => $app->installScript, 'update' => (string) ($app->updates['script'] ?? '')] as $kind => $script) {
+                if ($script === '') {
+                    continue;
+                }
+                $p = proc_open(['bash', '-n'], [0 => ['pipe', 'r'], 2 => ['pipe', 'w']], $pipes);
+                fwrite($pipes[0], "set -euo pipefail\n".$script);
+                fclose($pipes[0]);
+                $err = stream_get_contents($pipes[2]);
+                $this->assertSame(0, proc_close($p), "{$id}: {$kind} script: {$err}");
+            }
+        }
+    }
+
     public function test_loads_the_real_adguard_catalog_entry(): void
     {
         $catalog = app(Catalog::class);

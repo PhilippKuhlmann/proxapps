@@ -1,0 +1,83 @@
+id: immich
+name: Immich
+summary: Fotos und Videos vom Handy sichern und durchsuchen – der Ersatz für Google Fotos.
+description: |
+  Immich sichert Fotos und Videos automatisch vom Smartphone, zeigt sie in einer Zeitleiste und
+  auf der Karte, erkennt Gesichter und findet Bilder per Freitextsuche („Hund am Strand“).
+  ProxApps installiert Immich mit dem offiziellen Docker-Compose-Paket des neuesten Release
+  (Server, Machine Learning, PostgreSQL, Valkey) und legt das Admin-Konto an.
+category: Medien
+version: latest
+website: https://immich.app
+source: https://github.com/immich-app/immich
+hostname: immich
+os:
+  template: debian-13-standard
+resources:
+  cores: 4
+  memory: 6144
+  swap: 2048
+  disk: 64
+lxc:
+  unprivileged: true
+  nesting: true
+  onboot: true
+tags: [immich, fotos, docker]
+parameters:
+  - key: ADMIN_EMAIL
+    label: Admin-E-Mail
+    type: text
+    required: true
+    pattern: '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+    help: Anmeldename des ersten Kontos (Administrator).
+  - key: ADMIN_PASS
+    label: Admin-Passwort
+    type: password
+    required: true
+    generate: true
+    min_length: 10
+    help: Leer lassen, um ein sicheres Passwort zu erzeugen.
+  - key: MACHINE_LEARNING
+    label: Gesichter und Freitextsuche
+    type: boolean
+    default: true
+    help: Startet den Machine-Learning-Dienst (rund 2 GB RAM). Ohne ihn gibt es keine Gesichtserkennung und Smart-Suche.
+  - key: WEB_PORT
+    label: Port
+    type: number
+    default: 2283
+    min: 1024
+    max: 65535
+    help: Port der Weboberfläche im Container-LXC (Ziel für den Reverse Proxy).
+  - key: DOCKER_MTU
+    label: Docker-MTU (optional)
+    type: number
+    min: 1280
+    max: 9000
+    help: Nur bei kleinerer Internet-MTU setzen (z. B. 1492 bei PPPoE), sonst brechen die Modell-Downloads ab.
+ports:
+  - port: "{WEB_PORT}"
+    proto: tcp
+    label: Immich-Weboberfläche und App
+install: install.sh
+updates:
+  script: update.sh
+  installed_version: ". /opt/immich/proxapps.env && curl -sf http://127.0.0.1:$WEB_PORT/api/server/version | jq -r '\"v\\(.major).\\(.minor).\\(.patch)\"'"
+  latest_version:
+    url: https://api.github.com/repos/immich-app/immich/releases/latest
+    json: tag_name
+healthcheck:
+  url: "http://{ip}:{WEB_PORT}/api/server/ping"
+  timeout: 900
+# PK95 Core: Ziel für den Reverse Proxy und Domain-Vorschlag.
+proxy:
+  url: "http://{ip}:{WEB_PORT}"
+  subdomain: fotos
+access:
+  url: "http://{ip}:{WEB_PORT}/"
+  user: "{ADMIN_EMAIL}"
+  password_param: ADMIN_PASS
+notes: |
+  Melde dich mit dem Konto oben an und lege unter „Administration → Benutzer“ weitere Konten an.
+  In der Immich-App trägst du als Server-Adresse die Domain aus PK95 Core ein (oder http://{ip}:{WEB_PORT} im Heimnetz).
+  Fotos liegen in /opt/immich/library, die Datenbank in /opt/immich/postgres – vor jedem Update legt ProxApps einen Snapshot an.
