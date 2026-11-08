@@ -1,0 +1,188 @@
+@import 'tailwindcss';
+
+@plugin '@tailwindcss/forms';
+
+@source "../views";
+@source "../js";
+@source "../../app/Livewire";
+@source inline("-translate-x-full lg:-translate-x-full! lg:ml-0! hidden overflow-hidden transform-none");
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --radius-none: 0px;
+  --radius-sm: 1px;
+  --radius: 2px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 4px;
+  --radius-2xl: 5px;
+  --radius-3xl: 6px;
+  --radius-full: 9999px;
+
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+
+  --color-blau-900: #1b4176;
+  --color-blau-500: #1f73d6;
+  --color-blau-300: #59b0ff;
+  --color-blau-100: #bce0ff;
+  --color-sdarkblue: #122748;
+  --color-ssystemblue: #3391f0;
+
+  --color-cerulean-50: #eef7ff;
+  --color-cerulean-100: #d9edff;
+  --color-cerulean-200: #bce0ff;
+  --color-cerulean-300: #8ecdff;
+  --color-cerulean-400: #59b0ff;
+  --color-cerulean-500: #3391f0;
+  --color-cerulean-600: #1f73d6;
+  --color-cerulean-700: #1a5cad;
+  --color-cerulean-800: #1b4d8e;
+  --color-cerulean-900: #1b4176;
+  --color-cerulean-950: #122748;
+
+  --color-chathams-blue-50: #f1f6fc;
+  --color-chathams-blue-100: #e0ecf8;
+  --color-chathams-blue-200: #c7dbf1;
+  --color-chathams-blue-300: #9ec2e7;
+  --color-chathams-blue-400: #6fa1da;
+  --color-chathams-blue-500: #4d82cd;
+  --color-chathams-blue-600: #3967b3;
+  --color-chathams-blue-700: #305392;
+  --color-chathams-blue-800: #1f3d6e;
+  --color-chathams-blue-900: #1c3358;
+  --color-chathams-blue-950: #131f38;
+
+  --width-128: 32rem;
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-gray-400);
+  opacity: 1;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--color-gray-500);
+}
+
+[x-cloak] {
+  display: none !important;
+}
+
+/* Legacy weight aliases used throughout the DokuVault markup */
+.font-CoconPro      { font-family: "Space Grotesk"; font-weight: 600; }
+.font-DINPro        { font-family: "Space Grotesk"; font-weight: 400; }
+.font-DINPro-light  { font-family: "Space Grotesk"; font-weight: 300; }
+.font-DINPro-medium { font-family: "Space Grotesk"; font-weight: 500; }
+.font-DINPro-bold   { font-family: "Space Grotesk"; font-weight: 700; }
+
+/* Login page background grid + animated packets */
+.netzplan-raster {
+  background-image:
+    linear-gradient(to right, currentColor 1px, transparent 1px),
+    linear-gradient(to bottom, currentColor 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+.netzplan-paket {
+  stroke-dasharray: 3 100;
+  animation: netzplan-paket 6s linear infinite;
+}
+@keyframes netzplan-paket {
+  from { stroke-dashoffset: 103; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* Deployment log console */
+.log-console { font-variant-ligatures: none; tab-size: 4; }
+
+@media (prefers-reduced-motion: reduce) {
+  .netzplan-paket { animation: none; }
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-weight: 300;
+  font-display: swap;
+  src: url("/fonts/SpaceGrotesk-Light.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-weight: 300;
+  font-display: swap;
+  src: url("/fonts/SpaceGrotesk-Light-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/SpaceGrotesk-Regular.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/SpaceGrotesk-Regular-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/SpaceGrotesk-Medium.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/SpaceGrotesk-Medium-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/SpaceGrotesk-Semibold.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/SpaceGrotesk-Semibold-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/SpaceGrotesk-Bold.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/SpaceGrotesk-Bold-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}

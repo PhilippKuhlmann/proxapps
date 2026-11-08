@@ -1,0 +1,25 @@
+services:
+  proxapps:
+    build:
+      context: .
+      # Build steps download packages (Composer, npm, apk). Using the host network
+      # avoids broken downloads when the uplink MTU is below 1500 (e.g. PPPoE).
+      network: host
+    image: proxapps:latest
+    container_name: proxapps
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - proxapps-storage:/app/storage
+      # Optional: eigenen App-Katalog statt des mitgelieferten verwenden
+      # - ./catalog:/catalog:ro
+    environment:
+      APP_URL: "${APP_URL:-http://localhost:8080}"
+      TZ: Europe/Berlin
+      # PROXAPPS_CATALOG: /catalog
+      # Nur setzen, wenn ein TLS-Reverse-Proxy davor steht:
+      # SESSION_SECURE_COOKIE: "true"
+
+volumes:
+  proxapps-storage:

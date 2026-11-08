@@ -1,0 +1,91 @@
+id: vaultwarden
+name: Vaultwarden
+summary: Schlanker, Bitwarden-kompatibler Passwort-Server für Familie und Team.
+description: |
+  Vaultwarden ist eine ressourcenschonende Server-Implementierung der Bitwarden-API. Alle
+  offiziellen Bitwarden-Apps (Browser-Erweiterung, Smartphone, Desktop) funktionieren damit.
+  ProxApps betreibt das offizielle Image vaultwarden/server im LXC, erzeugt den Admin-Token
+  (im Container nur als Argon2-Hash gespeichert) und richtet auf Wunsch ein selbstsigniertes
+  Zertifikat ein. Die Daten liegen in /opt/vaultwarden/data.
+category: Sicherheit
+version: latest
+website: https://github.com/dani-garcia/vaultwarden/wiki
+source: https://github.com/dani-garcia/vaultwarden
+hostname: vaultwarden
+os:
+  template: debian-13-standard
+resources:
+  cores: 1
+  memory: 1024
+  swap: 512
+  disk: 8
+lxc:
+  unprivileged: true
+  nesting: true
+  onboot: true
+tags: [passwords, docker]
+parameters:
+  - key: ADMIN_TOKEN
+    label: Admin-Token
+    type: password
+    required: true
+    generate: true
+    min_length: 16
+    help: Zugang zur Admin-Seite (/admin). Leer lassen, um einen sicheren Token zu erzeugen.
+  - key: TLS_MODE
+    label: HTTPS
+    type: select
+    default: proxy
+    options:
+      - value: proxy
+        label: Über meinen Reverse Proxy (empfohlen)
+      - value: self_signed
+        label: Selbstsigniertes Zertifikat (nur LAN)
+    help: Die Web-Oberfläche und die Apps funktionieren nur über HTTPS.
+  - key: DOMAIN
+    label: Öffentliche Adresse (optional)
+    type: text
+    pattern: '^https?://[A-Za-z0-9.-]+(:[0-9]+)?(/[^ ]*)?$'
+    help: z. B. https://vault.example.de – wird für Links in E-Mails und für WebAuthn benötigt.
+  - key: WEB_PORT
+    label: Port
+    type: number
+    default: 8000
+    min: 1
+    max: 65535
+    help: Port im Container-LXC (Ziel für den Reverse Proxy).
+  - key: SIGNUPS_ALLOWED
+    label: Registrierung erlauben
+    type: boolean
+    default: true
+    help: Nach dem Anlegen der Konten in der Admin-Seite abschalten.
+  - key: DOCKER_MTU
+    label: Docker-MTU (optional)
+    type: number
+    min: 1280
+    max: 9000
+    help: Nur bei kleinerer Internet-MTU setzen (z. B. 1492 bei PPPoE), sonst schlagen Icon-Downloads fehl.
+ports:
+  - port: "{WEB_PORT}"
+    proto: tcp
+    label: Vaultwarden (HTTP oder HTTPS)
+install: install.sh
+updates:
+  script: update.sh
+  installed_version: "docker exec vaultwarden /vaultwarden --version | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1"
+  latest_version:
+    url: https://api.github.com/repos/dani-garcia/vaultwarden/releases/latest
+    json: tag_name
+healthcheck:
+  url: "{HEALTH_URL}"
+  timeout: 180
+access:
+  url: "{ACCESS_URL}"
+  user: ""
+  password_param: ADMIN_TOKEN
+notes: |
+  Das Passwort oben ist der Admin-Token für {ACCESS_URL}admin.
+  1. Lege in der Web-Oberfläche dein Konto an (Registrierung ist anfangs erlaubt) und schalte sie danach in der Admin-Seite unter „General Settings → Allow new signups“ ab.
+  2. Reverse Proxy: leite deine Domain auf {UPSTREAM_URL} weiter.
+  3. Für Einladungen und Passwort-Hinweise per E-Mail trage SMTP in der Admin-Seite ein.
+  Daten: /opt/vaultwarden/data im Container – vor jedem Update legt ProxApps einen Snapshot an.

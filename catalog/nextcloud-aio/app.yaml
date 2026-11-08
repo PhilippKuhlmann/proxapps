@@ -1,0 +1,97 @@
+id: nextcloud-aio
+name: Nextcloud AIO
+summary: Nextcloud All-in-One – Dateien, Kalender, Kontakte, Office und Talk aus einem Guss.
+description: |
+  Nextcloud All-in-One (AIO) ist die offizielle Komplettinstallation von Nextcloud: Ein
+  Mastercontainer richtet Nextcloud, Datenbank, Redis, Apache, Collabora/Office, Talk und
+  Backups als Docker-Container ein und hält sie aktuell. ProxApps installiert Docker und den
+  Mastercontainer im LXC und übergibt dir die AIO-Passphrase. Die Domain trägst du danach in
+  der AIO-Oberfläche ein (das lässt AIO nur dort zu).
+category: Produktivität
+version: latest
+website: https://nextcloud.com/all-in-one/
+source: https://github.com/nextcloud/all-in-one
+hostname: nextcloud
+os:
+  template: debian-13-standard
+resources:
+  cores: 4
+  memory: 6144
+  swap: 2048
+  disk: 64
+lxc:
+  unprivileged: true
+  nesting: true
+  onboot: true
+tags: [nextcloud, docker]
+parameters:
+  - key: AIO_MODE
+    label: Betriebsart
+    type: select
+    default: reverse_proxy
+    options:
+      - value: reverse_proxy
+        label: Hinter einem Reverse Proxy (empfohlen)
+      - value: direct
+        label: Direkt (AIO holt selbst ein Let's-Encrypt-Zertifikat)
+    help: "Reverse Proxy: dein Proxy leitet die Domain auf http://<IP>:<Apache-Port> weiter. Direkt: Ports 80/443 müssen aus dem Internet erreichbar sein."
+  - key: APACHE_PORT
+    label: Apache-Port (Reverse-Proxy-Modus)
+    type: number
+    default: 11000
+    min: 1024
+    max: 65535
+    help: Ziel-Port für deinen Reverse Proxy.
+  - key: NEXTCLOUD_UPLOAD_LIMIT
+    label: Upload-Limit
+    type: text
+    default: 16G
+    pattern: '^[0-9]+G$'
+    help: Maximale Größe nicht gestückelter Uploads, z. B. 16G.
+  - key: NEXTCLOUD_MEMORY_LIMIT
+    label: PHP-Speicher pro Prozess
+    type: text
+    default: 1024M
+    pattern: '^[0-9]+M$'
+  - key: NEXTCLOUD_MAX_TIME
+    label: Upload-Zeitlimit (Sekunden)
+    type: number
+    default: 3600
+    min: 60
+    max: 86400
+  - key: DOCKER_MTU
+    label: Docker-MTU (optional)
+    type: number
+    min: 1280
+    max: 9000
+    help: Nur setzen, wenn die Internet-Verbindung eine kleinere MTU hat (z. B. 1492 bei PPPoE) – sonst brechen Downloads in den Containern ab.
+ports:
+  - port: 8080
+    proto: tcp
+    label: AIO-Oberfläche (HTTPS, selbstsigniert)
+  - port: "{APACHE_PORT}"
+    proto: tcp
+    label: Nextcloud für den Reverse Proxy
+  - port: 3478
+    proto: tcp/udp
+    label: Talk (TURN)
+install: install.sh
+updates:
+  script: update.sh
+  installed_version: "docker exec nextcloud-aio-mastercontainer cat /var/www/docker-aio/php/templates/includes/aio-version.twig | tr -d ' \\n'"
+  latest_version:
+    url: https://api.github.com/repos/nextcloud/all-in-one/releases/latest
+    json: tag_name
+healthcheck:
+  url: "https://{ip}:8080/"
+  timeout: 300
+access:
+  url: "https://{ip}:8080/"
+  user: ""
+  password_param: AIO_PASSPHRASE
+notes: |
+  1. Öffne die AIO-Oberfläche https://{ip}:8080 (selbstsigniertes Zertifikat bestätigen) und melde dich mit der Passphrase oben an.
+  2. Trage deine Domain ein. Im Reverse-Proxy-Modus muss dein Proxy die Domain vorher auf http://{ip}:{APACHE_PORT} weiterleiten (WebSockets erlauben).
+  3. Wähle die gewünschten Zusatzdienste (Office, Talk …) und starte die Container – das dauert beim ersten Mal einige Minuten.
+  Backups von AIO brauchen FUSE im Container (Proxmox: Optionen → Features → FUSE, nur als root@pam setzbar).
+  Updates von Docker, AIO und Nextcloud spielt ProxApps zentral ein (Seite „Updates“), sobald die Ersteinrichtung abgeschlossen ist.

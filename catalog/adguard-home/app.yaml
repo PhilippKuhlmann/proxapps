@@ -1,0 +1,74 @@
+id: adguard-home
+name: AdGuard Home
+summary: Netzwerkweiter Werbe- und Tracker-Blocker mit eigenem DNS-Server.
+description: |
+  AdGuard Home filtert Werbung, Tracker und Schadseiten für alle Geräte im Netz,
+  ganz ohne Client-Software. Es arbeitet als DNS-Server, unterstützt DNS-over-HTTPS,
+  DNS-over-TLS, eigene Filterlisten, Clients-Regeln und eine Statistik pro Gerät.
+  Die Einrichtung (Admin-Konto, Ports) erledigt ProxApps automatisch – der
+  Einrichtungsassistent entfällt.
+category: Netzwerk
+version: latest
+website: https://adguard.com/adguard-home/overview.html
+source: https://github.com/AdguardTeam/AdGuardHome
+hostname: adguard
+os:
+  template: debian-13-standard
+resources:
+  cores: 1
+  memory: 512
+  swap: 512
+  disk: 4
+lxc:
+  unprivileged: true
+  nesting: true
+  onboot: true
+tags: [dns, adblock]
+parameters:
+  - key: ADMIN_USER
+    label: Admin-Benutzer
+    type: text
+    default: admin
+    required: true
+    pattern: '^[A-Za-z0-9._@-]{1,64}$'
+    help: Anmeldename für die AdGuard-Weboberfläche.
+  - key: ADMIN_PASS
+    label: Admin-Passwort
+    type: password
+    required: true
+    generate: true
+    min_length: 8
+    help: Mindestens 8 Zeichen. Leer lassen, um ein sicheres Passwort zu erzeugen.
+  - key: WEB_PORT
+    label: Port der Weboberfläche
+    type: number
+    default: 80
+    min: 1
+    max: 65535
+    help: "Port 53 ist für DNS reserviert."
+ports:
+  - port: "{WEB_PORT}"
+    proto: tcp
+    label: Weboberfläche
+  - port: 53
+    proto: tcp/udp
+    label: DNS
+install: install.sh
+updates:
+  script: update.sh
+  # Prints the installed version (one line); runs inside the container.
+  installed_version: "/opt/AdGuardHome/AdGuardHome --version | grep -oE 'v[0-9]+(\\.[0-9]+)+' | head -n1"
+  # ProxApps reads the newest release from here (JSON key "version", e.g. "v0.107.80").
+  latest_version:
+    url: https://static.adtidy.org/adguardhome/release/version.json
+    json: version
+healthcheck:
+  url: "http://{ip}:{WEB_PORT}/login.html"
+  timeout: 120
+access:
+  url: "http://{ip}:{WEB_PORT}/"
+  user: "{ADMIN_USER}"
+  password_param: ADMIN_PASS
+notes: |
+  Trage {ip} als DNS-Server in deinem Router bzw. DHCP-Server ein, damit alle
+  Geräte über AdGuard Home auflösen. Updates spielt ProxApps zentral ein (Seite „Updates“).
