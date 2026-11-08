@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Livewire\Apps\Deploy;
 use App\Livewire\Deployments\Show;
+use App\Livewire\Settings\ProfileForm;
 use App\Models\Deployment;
 use App\Models\NetworkProfile;
 use App\Models\UpdateRun;
@@ -44,6 +45,9 @@ class BridgeSerializer
         }
         if ($component instanceof Deploy) {
             $out['templateChoices'] = self::value($component->templateChoices());
+        }
+        if ($component instanceof ProfileForm) {
+            $out['patternPreview'] = $component->patternPreview();
         }
 
         return $out;
@@ -90,6 +94,8 @@ class BridgeSerializer
         }
         if ($model instanceof UpdateRun) {
             $data['is_active'] = $model->isActive();
+            $data['status_label'] = UpdateRun::STATUS_LABELS[$model->status] ?? $model->status;
+            $data['step_label'] = UpdateRun::stepLabel($model->step);
         }
         if ($model instanceof NetworkProfile && method_exists($model, 'prefix')) {
             $data['prefix'] = $model->prefix();

@@ -70,6 +70,12 @@ class BridgeController extends Controller
             } else {
                 $this->hydrate($c, (array) ($input['state'] ?? []));
             }
+            // Livewire keeps validation errors between requests until a component resets them.
+            foreach ((array) ($input['errors'] ?? []) as $key => $messages) {
+                foreach ((array) $messages as $message) {
+                    $c->addError((string) $key, (string) $message);
+                }
+            }
 
             if (! empty($input['updated']) && is_string($input['updated'])) {
                 $this->runUpdatedHooks($c, $input['updated']);
@@ -115,6 +121,11 @@ class BridgeController extends Controller
             'view' => $view,
             'redirect' => $redirect ? (parse_url((string) $redirect, PHP_URL_PATH) ?: '/') : null,
             'notices' => $this->notices($c),
+            // other Livewire events (log lines for the browser, refreshes of nested parts)
+            'events' => collect((array) store($c)->get('dispatched', []))
+                ->map(fn ($event) => $event->serialize())
+                ->reject(fn (array $e) => ($e['name'] ?? '') === 'notice')
+                ->values()->all(),
         ]);
     }
 
