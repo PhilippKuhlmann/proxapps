@@ -44,7 +44,12 @@ RUN mkdir -p /run/nginx /var/lib/nginx/tmp && chown -R www-data:www-data /var/li
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint
 RUN chmod +x /usr/local/bin/entrypoint
 
-ENV APP_ENV=production \
+# Release version, set by CI from the git tag (v1.2.3 → 1.2.3); reported by /core/manifest.
+ARG VERSION=1.0.0
+LABEL org.opencontainers.image.version=$VERSION
+
+ENV PROXAPPS_VERSION=$VERSION \
+    APP_ENV=production \
     APP_DEBUG=false \
     LOG_CHANNEL=stderr \
     DB_CONNECTION=sqlite \
