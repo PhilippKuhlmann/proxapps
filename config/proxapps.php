@@ -2,7 +2,8 @@
 
 return [
 
-    'version' => '1.0.0',
+    // Release version: the Docker image sets PROXAPPS_VERSION from the git tag (v1.2.3 → 1.2.3).
+    'version' => env('PROXAPPS_VERSION', '1.0.0'),
 
     /*
     | PK95 Core mode (app protocol v1): PK95 Core starts this instance as a container and

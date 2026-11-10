@@ -51,6 +51,23 @@ class CoreModeTest extends FeatureTestCase
         $this->withoutToken()->postJson('/api/bridge/connections', ['mount' => []])->assertUnauthorized();
     }
 
+    public function test_manifest_reports_the_release_version_from_the_image(): void
+    {
+        // The image sets PROXAPPS_VERSION from the git tag (v2.3.4 → 2.3.4).
+        putenv('PROXAPPS_VERSION=2.3.4');
+        try {
+            $config = require config_path('proxapps.php');
+        } finally {
+            putenv('PROXAPPS_VERSION');
+        }
+        $this->assertSame('2.3.4', $config['version']);
+        $this->assertSame('1.0.0', (require config_path('proxapps.php'))['version'], 'fallback without the variable');
+
+        $this->coreMode();
+        config(['proxapps.version' => '2.3.4']);
+        $this->withToken(self::TOKEN)->getJson('/core/manifest')->assertOk()->assertJson(['version' => '2.3.4']);
+    }
+
     public function test_bridge_renders_a_page_with_its_data(): void
     {
         $this->coreMode();
