@@ -37,6 +37,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history with tags: main builds report the last release (git describe).
+          fetch-depth: 0
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -44,15 +47,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       # The version the app reports (/core/manifest, image label): from a release tag v1.2.3
-      # exactly "1.2.3"; main builds keep the last release number so a Core minVersion check
-      # does not lock them out.
+      # exactly "1.2.3"; main builds report the last release (git describe), so a Core
+      # minVersion check does not lock them out. Before the first release: 1.0.0.
       - id: version
         run: |
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+            version="${GITHUB_REF_NAME#v}"
           else
-            echo "version=1.0.0" >> "$GITHUB_OUTPUT"
+            last="$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)"
+            version="${last:-v1.0.0}"
+            version="${version#v}"
           fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Version: ${version}"
       - id: meta
         uses: docker/metadata-action@v5
         with:
