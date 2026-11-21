@@ -5,10 +5,10 @@ name: Catalog smoke test
 # healthcheck. Only when catalog files change – the images are large.
 on:
   pull_request:
-    paths: ['catalog/**', '.github/workflows/catalog.yml', '.github/scripts/catalog-*.sh']
+    paths: ['catalog/**', '.github/workflows/catalog.yml', '.github/scripts/**']
   push:
     branches: [main]
-    paths: ['catalog/**', '.github/workflows/catalog.yml', '.github/scripts/catalog-*.sh']
+    paths: ['catalog/**', '.github/workflows/catalog.yml', '.github/scripts/**']
   workflow_dispatch:
 
 permissions:
@@ -20,7 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # The catalog scripts have no shebang: SshRunner runs them with bash.
-      - run: shellcheck --version && shellcheck -s bash -S error catalog/*/install.sh catalog/*/update.sh .github/scripts/catalog-*.sh
+      - run: shellcheck --version && shellcheck -s bash -S error catalog/*/install.sh catalog/*/update.sh .github/scripts/*.sh
+      # authentik must step through the release lines one at a time.
+      - run: .github/scripts/test-authentik-lines.sh
 
   smoke:
     needs: shellcheck
@@ -40,6 +42,15 @@ jobs:
           - app: authentik
             params: |
               ADMIN_EMAIL=ci@example.com
+            # Install the previous release line, so update.sh does a real one-line upgrade.
+            prepare: |
+              sudo install -d -m 0750 /opt/authentik
+              echo 'AUTHENTIK_TAG=2026.5' | sudo tee /opt/authentik/proxapps.env
+            after_update: |
+              sudo grep -qx 'AUTHENTIK_TAG=2026.8' /opt/authentik/proxapps.env
+              v="$(sudo docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' authentik)"
+              echo "Nach dem Update: $v"
+              [[ "$v" == 2026.8.* ]]
             check: |
               sudo test ! -e /opt/authentik/bootstrap.env
               sudo docker exec authentik-worker ak shell -c "import sys; from authentik.core.models import User; sys.exit(0 if User.objects.get(username='akadmin').check_password('$ADMIN_PASS') else 1)"
@@ -88,6 +99,9 @@ jobs:
             printf '%s\n' "$PARAMS"
           } > "$RUNNER_TEMP/env"
           grep -v PASS "$RUNNER_TEMP/env"
+      - name: Prepare
+        if: matrix.prepare
+        run: ${{ matrix.prepare }}
       - name: install.sh
         run: sudo .github/scripts/catalog-run.sh "$RUNNER_TEMP/env" "catalog/${{ matrix.app }}/install.sh" 2>&1 | tee "$RUNNER_TEMP/install.log"
       - name: Healthcheck (app.yaml)
@@ -110,6 +124,9 @@ jobs:
         run: sudo .github/scripts/catalog-run.sh "$RUNNER_TEMP/env" "catalog/${{ matrix.app }}/update.sh"
       - name: Healthcheck after the update
         run: .github/scripts/catalog-health.sh "${{ matrix.app }}" "$RUNNER_TEMP/env"
+      - name: Checks after the update
+        if: matrix.after_update
+        run: ${{ matrix.after_update }}
       - name: Container logs
         if: failure()
         run: |
