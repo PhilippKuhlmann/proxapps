@@ -7,6 +7,7 @@ use App\Services\Catalog\AppDefinition;
 use App\Services\Catalog\Catalog;
 use App\Services\Deploy\ContainerManager;
 use App\Services\Ssh\SshRunner;
+use App\Support\PortProbe;
 use Illuminate\Support\Facades\Http;
 use phpseclib3\Net\SSH2;
 use Throwable;
@@ -68,7 +69,8 @@ class UpdateChecker
         $value = $src['json'] !== '' ? data_get($json, $src['json']) : $json;
         $value = is_scalar($value) ? trim((string) $value) : '';
 
-        return $value !== '' ? mb_substr($value, 0, 64) : null;
+        // Release tags come as "v17.0.2" or "version/2026.8.5" – store the bare number.
+        return $value !== '' ? mb_substr((string) PortProbe::normalizeVersion($value), 0, 64) : null;
     }
 
     /**
