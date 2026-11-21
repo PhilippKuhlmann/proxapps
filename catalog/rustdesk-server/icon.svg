@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Generic remote-desktop icon, not the RustDesk logo -->
+  <rect width="64" height="64" rx="14" fill="#0b5fa5"/>
+  <rect x="12" y="15" width="40" height="27" rx="3" fill="#fff"/>
+  <rect x="16" y="19" width="32" height="19" rx="1.5" fill="#cfe2f3"/>
+  <path d="M26 42h12l2 6H24z" fill="#fff"/>
+  <rect x="20" y="48" width="24" height="3" rx="1.5" fill="#fff"/>
+  <path d="M29 23l9 6-9 6z" fill="#0b5fa5"/>
+</svg>

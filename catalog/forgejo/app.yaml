@@ -1,0 +1,106 @@
+id: forgejo
+name: Forgejo
+summary: Eigener Git-Server mit Issues, Pull Requests, Wiki und CI.
+description: |
+  Forgejo ist eine schlanke Software-Schmiede (Fork von Gitea, Basis von Codeberg): Git-Repositorys
+  über HTTP und SSH, Issues, Pull Requests, Wiki, Pakete und Forgejo Actions. ProxApps installiert
+  das offizielle Image von codeberg.org mit SQLite, legt dein Admin-Konto an und schaltet die
+  offene Registrierung ab.
+category: Entwicklung
+version: "17"
+website: https://forgejo.org/docs/latest/
+source: https://codeberg.org/forgejo/forgejo
+hostname: forgejo
+os:
+  template: debian-13-standard
+resources:
+  cores: 2
+  memory: 1024
+  swap: 512
+  disk: 20
+lxc:
+  unprivileged: true
+  nesting: true
+  onboot: true
+tags: [forgejo, git, docker]
+parameters:
+  - key: ROOT_URL
+    label: Öffentliche Adresse (optional)
+    type: text
+    pattern: '^https?://[A-Za-z0-9.-]+(:[0-9]+)?(/[^ ]*)?$'
+    help: >-
+      z. B. https://git.example.de – erscheint in Clone-URLs und E-Mails. Leer = http://IP:Port
+      (später in /opt/forgejo/forgejo.env änderbar).
+  - key: ADMIN_USER
+    label: Admin-Benutzer
+    type: text
+    default: forgejo-admin
+    required: true
+    pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{1,39}$'
+    help: „admin“ ist in Forgejo reserviert.
+  - key: ADMIN_EMAIL
+    label: E-Mail des Admins
+    type: text
+    required: true
+    pattern: '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+  - key: ADMIN_PASS
+    label: Admin-Passwort
+    type: password
+    required: true
+    generate: true
+    min_length: 12
+    help: Leer lassen, um ein sicheres Passwort zu erzeugen.
+  - key: REGISTRATION
+    label: Registrierung erlauben
+    type: boolean
+    default: false
+    help: Aus = nur der Admin legt Konten an (empfohlen).
+  - key: WEB_PORT
+    label: Port
+    type: number
+    default: 3000
+    min: 1024
+    max: 65535
+    help: HTTP-Port im Container-LXC (Ziel für den Reverse Proxy).
+  - key: SSH_PORT
+    label: SSH-Port für Git
+    type: number
+    default: 2222
+    min: 1024
+    max: 65535
+    help: Git über SSH (git clone ssh://git@host:2222/…). Port 22 bleibt für die Verwaltung des LXC.
+  - key: DOCKER_MTU
+    label: Docker-MTU (optional)
+    type: number
+    min: 1280
+    max: 9000
+    help: Nur bei kleinerer Internet-MTU setzen (z. B. 1492 bei PPPoE).
+ports:
+  - port: "{WEB_PORT}"
+    proto: tcp
+    label: Forgejo (HTTP)
+  - port: "{SSH_PORT}"
+    proto: tcp
+    label: Git über SSH
+install: install.sh
+updates:
+  script: update.sh
+  installed_version: "docker inspect --format '{{index .Config.Labels \"org.opencontainers.image.version\"}}' forgejo"
+  latest_version:
+    url: https://codeberg.org/api/v1/repos/forgejo/forgejo/releases/latest
+    json: tag_name
+healthcheck:
+  url: "http://{ip}:{WEB_PORT}/api/healthz"
+  timeout: 300
+proxy:
+  url: "http://{ip}:{WEB_PORT}"
+  subdomain: git
+  domain_param: ROOT_URL
+access:
+  url: "{ACCESS_URL}"
+  user: "{ADMIN_USER}"
+  password_param: ADMIN_PASS
+notes: |
+  Melde dich mit dem Konto oben an. Git über SSH: Port {SSH_PORT} (git@{ip}:{SSH_PORT}), HTTP läuft über den Reverse Proxy auf http://{ip}:{WEB_PORT}.
+  LDAP / Active Directory kannst du später unter Website-Administration → Authentifizierungsquellen hinzufügen (Typ „LDAP (via BindDN)“, Benutzer-Filter (&(objectClass=user)(sAMAccountName=%s))).
+  Daten: /opt/forgejo/data (Repositorys, SQLite-Datenbank, Einstellungen) – vor jedem Update legt ProxApps einen Snapshot an.

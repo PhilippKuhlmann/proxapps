@@ -13,6 +13,7 @@ use App\Services\Proxmox\ProxmoxException;
 use App\Services\Ssh\DeployerKey;
 use App\Services\Ssh\SshException;
 use App\Services\Ssh\SshRunner;
+use App\Support\PortProbe;
 use Closure;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -248,6 +249,19 @@ class DeploymentRunner
             if (! empty($hc['url'])) {
                 $url = Catalog::render((string) $hc['url'], $context);
                 $this->healthCheck($url, $this->limit((int) ($hc['timeout'] ?? 120)));
+            } elseif (! empty($hc['tcp'])) {
+                // Apps without a web interface (e.g. RustDesk): the port must accept connections.
+                $target = Catalog::render((string) $hc['tcp'], $context);
+                $hp = PortProbe::parse($target);
+                if ($hp === null) {
+                    throw new DeployException("Ungültige Funktionsprüfung '{$target}' im Katalog.");
+                }
+                $this->log("Prüfe TCP-Port {$target} …");
+                if (! PortProbe::wait($hp[0], $hp[1], $this->limit((int) ($hc['timeout'] ?? 120)),
+                    (float) config('proxapps.retry_interval', 3))) {
+                    throw new DeployException("Port {$target} nimmt keine Verbindungen an.");
+                }
+                $this->log("Port {$target} erreichbar – Dienst läuft.");
             } else {
                 $this->log('Keine Funktionsprüfung definiert.');
             }

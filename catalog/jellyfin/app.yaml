@@ -1,0 +1,83 @@
+id: jellyfin
+name: Jellyfin
+summary: Eigener Medienserver für Filme, Serien, Musik und Fotos.
+description: |
+  Jellyfin ist ein freier Medienserver ohne Abo und ohne Konto beim Hersteller: Filme, Serien,
+  Musik und Fotos mit Metadaten und Postern, gestreamt an Browser, Smart-TV, Smartphone und
+  Kodi. ProxApps installiert das offizielle Image jellyfin/jellyfin per Docker Compose.
+  Die Mediendateien bindest du als Proxmox-Mountpoint in den Container ein.
+category: Medien
+version: "12"
+website: https://jellyfin.org/docs/
+source: https://github.com/jellyfin/jellyfin
+hostname: jellyfin
+os:
+  template: debian-13-standard
+resources:
+  cores: 2
+  memory: 2048
+  swap: 1024
+  disk: 16
+lxc:
+  unprivileged: true
+  nesting: true
+  onboot: true
+tags: [jellyfin, media, docker]
+parameters:
+  - key: MEDIA_PATH
+    label: Medienordner im Container
+    type: text
+    default: /srv/media
+    required: true
+    pattern: '^/[A-Za-z0-9._/-]*$'
+    help: >-
+      Pfad im LXC, unter dem deine Medien liegen. ProxApps legt den Ordner nur an – binde dein NAS
+      oder deine Platte danach in Proxmox als Mountpoint ein (Container → Ressourcen →
+      Hinzufügen → Mountpoint, Pfad wie hier) und starte den Container neu.
+  - key: PUBLIC_URL
+    label: Öffentliche Adresse (optional)
+    type: text
+    pattern: '^https?://[A-Za-z0-9.-]+(:[0-9]+)?$'
+    help: z. B. https://jellyfin.example.de – wird den Apps bei der automatischen Suche im LAN gemeldet.
+  - key: WEB_PORT
+    label: Port
+    type: number
+    default: 8096
+    min: 1024
+    max: 65535
+    help: HTTP-Port im Container-LXC (Ziel für den Reverse Proxy).
+  - key: DOCKER_MTU
+    label: Docker-MTU (optional)
+    type: number
+    min: 1280
+    max: 9000
+    help: Nur bei kleinerer Internet-MTU setzen (z. B. 1492 bei PPPoE).
+ports:
+  - port: "{WEB_PORT}"
+    proto: tcp
+    label: Jellyfin (HTTP)
+  - port: "7359"
+    proto: udp
+    label: Automatische Server-Suche im LAN
+install: install.sh
+updates:
+  script: update.sh
+  installed_version: "docker inspect --format '{{index .Config.Labels \"org.opencontainers.image.version\"}}' jellyfin"
+  latest_version:
+    url: https://api.github.com/repos/jellyfin/jellyfin/releases/latest
+    json: tag_name
+healthcheck:
+  url: "http://{ip}:{WEB_PORT}/health"
+  timeout: 300
+proxy:
+  url: "http://{ip}:{WEB_PORT}"
+  subdomain: jellyfin
+  domain_param: PUBLIC_URL
+access:
+  url: "http://{ip}:{WEB_PORT}/"
+  user: ""
+notes: |
+  Öffne die Adresse oben: der Einrichtungsassistent legt dein Admin-Konto an. Füge danach Bibliotheken aus /media hinzu (im LXC: {MEDIA_PATH}).
+  Medien: binde deine Freigabe in Proxmox als Mountpoint auf {MEDIA_PATH} ein und starte den Container neu – ProxApps richtet keine Mountpoints ein.
+  Hardware-Transkodierung (/dev/dri, Intel Quick Sync) ist nicht eingerichtet; Jellyfin transkodiert per CPU. Für die GPU musst du das Gerät selbst in den LXC durchreichen und in der docker-compose.yml ergänzen.
+  Daten: /opt/jellyfin (Einstellungen, Benutzer, Metadaten) – vor jedem Update legt ProxApps einen Snapshot an.

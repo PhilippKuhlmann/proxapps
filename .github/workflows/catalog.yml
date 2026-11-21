@@ -1,0 +1,117 @@
+name: Catalog smoke test
+
+# Runs the catalog scripts on a GitHub runner (Docker is preinstalled there, so the Docker
+# install block of the scripts is skipped): install.sh → healthcheck → app checks → update.sh →
+# healthcheck. Only when catalog files change – the images are large.
+on:
+  pull_request:
+    paths: ['catalog/**', '.github/workflows/catalog.yml', '.github/scripts/catalog-*.sh']
+  push:
+    branches: [main]
+    paths: ['catalog/**', '.github/workflows/catalog.yml', '.github/scripts/catalog-*.sh']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      # The catalog scripts have no shebang: SshRunner runs them with bash.
+      - run: shellcheck --version && shellcheck -s bash -S error catalog/*/install.sh catalog/*/update.sh .github/scripts/catalog-*.sh
+
+  smoke:
+    needs: shellcheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: rustdesk-server
+            params: ""
+            check: |
+              grep -q '^PROXAPPS_VAR:PUBLIC_KEY=.' "$RUNNER_TEMP/install.log"
+              grep -q '^PROXAPPS_VAR:SERVER_ADDRESS=127.0.0.1$' "$RUNNER_TEMP/install.log"
+              sudo test -s /opt/rustdesk/data/id_ed25519
+              timeout 3 bash -c 'exec 3<>/dev/tcp/127.0.0.1/21117'
+          - app: authentik
+            params: |
+              ADMIN_EMAIL=ci@example.com
+            check: |
+              sudo test ! -e /opt/authentik/bootstrap.env
+              sudo docker exec authentik-worker ak shell -c "import sys; from authentik.core.models import User; sys.exit(0 if User.objects.get(username='akadmin').check_password('$ADMIN_PASS') else 1)"
+          - app: bookstack
+            params: |
+              APP_URL=http://127.0.0.1:6875
+            check: |
+              curl -sf http://127.0.0.1:6875/login | grep -qi 'bookstack'
+              grep -q '^PROXAPPS_VAR:ACCESS_URL=http://127.0.0.1:6875/$' "$RUNNER_TEMP/install.log"
+          - app: forgejo
+            params: |
+              ADMIN_EMAIL=ci@example.com
+            check: |
+              curl -sf -u "forgejo-admin:$ADMIN_PASS" http://127.0.0.1:3000/api/v1/user | jq -e '.is_admin == true'
+              timeout 3 bash -c 'exec 3<>/dev/tcp/127.0.0.1/2222'
+              sudo grep -q '^FORGEJO__service__DISABLE_REGISTRATION=true$' /opt/forgejo/forgejo.env
+          - app: jellyfin
+            params: ""
+            check: |
+              curl -sf http://127.0.0.1:8096/System/Info/Public | jq -e '.Version'
+          - app: stirling-pdf
+            params: ""
+            check: |
+              sudo grep -q '^SECURITY_ENABLELOGIN=true$' /opt/stirling-pdf/stirling.env
+              sudo sh -c '! grep -q INITIALLOGIN_PASSWORD /opt/stirling-pdf/stirling.env'
+              curl -sf http://127.0.0.1:8080/api/v1/info/status
+    name: smoke (${{ matrix.app }})
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parameters (catalog defaults like the deploy form, generated passwords)
+        env:
+          PARAMS: ${{ matrix.params }}
+          APP: ${{ matrix.app }}
+        run: |
+          pass="$(openssl rand -hex 16)"
+          echo "::add-mask::$pass"
+          echo "ADMIN_PASS=$pass" >> "$GITHUB_ENV"
+          yaml="catalog/$APP/app.yaml"
+          {
+            echo "PROXAPPS_IP=127.0.0.1"
+            echo "PROXAPPS_HOSTNAME=ci-$APP"
+            echo "PROXAPPS_VMID=100"
+            yq -r '.parameters[] | select(has("default")) | .key + "=" + (.default | tostring)' "$yaml" \
+              | sed -e 's/=true$/=1/' -e 's/=false$/=0/' -e "s/=\(.*\)$/='\1'/"
+            yq -r '.parameters[] | select(.generate == true) | .key' "$yaml" | sed "s/$/=$pass/"
+            printf '%s\n' "$PARAMS"
+          } > "$RUNNER_TEMP/env"
+          grep -v PASS "$RUNNER_TEMP/env"
+      - name: install.sh
+        run: sudo .github/scripts/catalog-run.sh "$RUNNER_TEMP/env" "catalog/${{ matrix.app }}/install.sh" 2>&1 | tee "$RUNNER_TEMP/install.log"
+      - name: Healthcheck (app.yaml)
+        run: .github/scripts/catalog-health.sh "${{ matrix.app }}" "$RUNNER_TEMP/env"
+      - name: App checks
+        run: ${{ matrix.check }}
+      - name: Secrets stay out of the output
+        run: |
+          if grep -qF "$ADMIN_PASS" "$RUNNER_TEMP/install.log"; then
+            echo "Das Admin-Passwort steht in der Ausgabe von install.sh" >&2
+            exit 1
+          fi
+      - name: Installed version (updates.installed_version)
+        run: |
+          cmd="$(yq -r '.updates.installed_version' "catalog/${{ matrix.app }}/app.yaml")"
+          v="$(sudo bash -c "$cmd")"
+          echo "Installiert: $v"
+          test -n "$v"
+      - name: update.sh
+        run: sudo .github/scripts/catalog-run.sh "$RUNNER_TEMP/env" "catalog/${{ matrix.app }}/update.sh"
+      - name: Healthcheck after the update
+        run: .github/scripts/catalog-health.sh "${{ matrix.app }}" "$RUNNER_TEMP/env"
+      - name: Container logs
+        if: failure()
+        run: |
+          sudo docker ps -a
+          for c in $(sudo docker ps -aq); do echo "== $c"; sudo docker logs --tail 80 "$c" 2>&1; done

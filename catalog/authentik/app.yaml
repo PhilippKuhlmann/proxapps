@@ -1,0 +1,85 @@
+id: authentik
+name: authentik
+summary: Single Sign-On und Identitätsanbieter (OIDC, SAML, LDAP, Forward Auth).
+description: |
+  authentik ist ein Identity Provider: eine zentrale Anmeldung für deine Dienste per OAuth2/OIDC,
+  SAML, LDAP oder Forward Auth am Reverse Proxy, mit MFA, Selbstregistrierung und Flows.
+  Benutzer können aus einem Active Directory oder LDAP übernommen werden. ProxApps installiert
+  den Server, den Worker und PostgreSQL per Docker Compose (offizielle Images) und legt das
+  Admin-Konto akadmin mit deinem Passwort an.
+category: Sicherheit
+version: "2026.8"
+website: https://docs.goauthentik.io
+source: https://github.com/goauthentik/authentik
+hostname: authentik
+os:
+  template: debian-13-standard
+resources:
+  cores: 2
+  memory: 2048
+  swap: 1024
+  disk: 16
+lxc:
+  unprivileged: true
+  nesting: true
+  onboot: true
+tags: [authentik, sso, docker]
+parameters:
+  - key: ADMIN_EMAIL
+    label: E-Mail des Admins
+    type: text
+    required: true
+    pattern: '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+    help: E-Mail-Adresse des Kontos akadmin.
+  - key: ADMIN_PASS
+    label: Admin-Passwort
+    type: password
+    required: true
+    generate: true
+    min_length: 12
+    help: Passwort für akadmin. Leer lassen, um ein sicheres Passwort zu erzeugen.
+  - key: PUBLIC_URL
+    label: Öffentliche Adresse (optional)
+    type: text
+    pattern: '^https?://[A-Za-z0-9.-]+(:[0-9]+)?$'
+    help: z. B. https://auth.example.de – unter dieser Domain veröffentlicht PK95 Core authentik am Reverse Proxy.
+  - key: WEB_PORT
+    label: Port
+    type: number
+    default: 9000
+    min: 1024
+    max: 65535
+    help: HTTP-Port im Container-LXC (Ziel für den Reverse Proxy).
+  - key: DOCKER_MTU
+    label: Docker-MTU (optional)
+    type: number
+    min: 1280
+    max: 9000
+    help: Nur bei kleinerer Internet-MTU setzen (z. B. 1492 bei PPPoE).
+ports:
+  - port: "{WEB_PORT}"
+    proto: tcp
+    label: authentik (HTTP)
+install: install.sh
+updates:
+  script: update.sh
+  installed_version: "docker inspect --format '{{index .Config.Labels \"org.opencontainers.image.version\"}}' authentik"
+  latest_version:
+    url: https://api.github.com/repos/goauthentik/authentik/releases/latest
+    json: tag_name
+healthcheck:
+  url: "http://{ip}:{WEB_PORT}/-/health/ready/"
+  timeout: 600
+proxy:
+  url: "http://{ip}:{WEB_PORT}"
+  subdomain: auth
+  domain_param: PUBLIC_URL
+access:
+  url: "http://{ip}:{WEB_PORT}/"
+  user: akadmin
+  password_param: ADMIN_PASS
+notes: |
+  Melde dich als akadmin mit dem Passwort oben an und richte unter „Admin-Oberfläche“ alles Weitere ein. HTTPS kommt über deinen Reverse Proxy.
+  Active Directory: Verzeichnis → Föderation und Social Login → „LDAP-Quelle“ anlegen, z. B. Server ldap://intern.kuhlmannit.de, Base DN DC=intern,DC=kuhlmannit,DC=de, Bind-Benutzer ein Dienstkonto, Benutzer-Filter (objectClass=user), Benutzername-Attribut sAMAccountName.
+  Forward Auth: Anwendung mit „Proxy-Provider → Forward Auth (Single Application oder Domain)“ anlegen und dem eingebetteten Outpost zuweisen; der Reverse Proxy fragt dann {ip}:{WEB_PORT}/outpost.goauthentik.io/auth/… ab.
+  Daten: /opt/authentik (Datenbank, Medien, Zertifikate) – vor jedem Update legt ProxApps einen Snapshot an.

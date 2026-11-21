@@ -1,0 +1,99 @@
+id: bookstack
+name: BookStack
+summary: Wiki und Dokumentation in Regalen, Büchern, Kapiteln und Seiten.
+description: |
+  BookStack ist ein übersichtliches Wiki für Team- und IT-Dokumentation: Inhalte liegen in
+  Regalen, Büchern, Kapiteln und Seiten, mit WYSIWYG- oder Markdown-Editor, Volltextsuche,
+  Versionen, Rollen und Rechten. Die Anmeldung kann über LDAP bzw. Active Directory laufen.
+  ProxApps installiert das Image von linuxserver.io mit MariaDB per Docker Compose.
+category: Produktivität
+version: latest
+website: https://www.bookstackapp.com/docs/
+source: https://codeberg.org/bookstack/bookstack
+hostname: bookstack
+os:
+  template: debian-13-standard
+resources:
+  cores: 1
+  memory: 1024
+  swap: 512
+  disk: 10
+lxc:
+  unprivileged: true
+  nesting: true
+  onboot: true
+tags: [bookstack, wiki, docker]
+parameters:
+  - key: APP_URL
+    label: Adresse von BookStack
+    type: text
+    pattern: '^https?://[A-Za-z0-9.-]+(:[0-9]+)?(/[^ ]*)?$'
+    help: >-
+      Unter dieser Adresse rufst du BookStack auf, z. B. https://wiki.example.de (über den Reverse
+      Proxy). BookStack leitet alle Links dorthin. Leer = Domain aus PK95 Core bzw. http://IP:Port.
+  - key: WEB_PORT
+    label: Port
+    type: number
+    default: 6875
+    min: 1024
+    max: 65535
+    help: HTTP-Port im Container-LXC (Ziel für den Reverse Proxy).
+  - key: LDAP_ENABLED
+    label: Anmeldung über LDAP / Active Directory
+    type: boolean
+    default: false
+    help: Ersetzt die lokale Anmeldung durch dein AD. Die folgenden LDAP-Felder sind nur dann nötig.
+  - key: LDAP_SERVER
+    label: LDAP-Server
+    type: text
+    default: ldap://intern.kuhlmannit.de:389
+    pattern: '^ldaps?://[A-Za-z0-9.-]+(:[0-9]+)?$'
+    help: Domain oder Domänencontroller, z. B. ldap://intern.kuhlmannit.de:389 oder ldaps://dc1.intern.kuhlmannit.de:636
+  - key: LDAP_BASE_DN
+    label: Base DN
+    type: text
+    default: DC=intern,DC=kuhlmannit,DC=de
+  - key: LDAP_BIND_DN
+    label: Bind-Benutzer
+    type: text
+    help: Dienstkonto zum Suchen, z. B. CN=svc-bookstack,OU=Dienste,DC=intern,DC=kuhlmannit,DC=de
+  - key: LDAP_BIND_PASS
+    label: Bind-Passwort
+    type: password
+    help: Passwort des Dienstkontos.
+  - key: LDAP_USER_FILTER
+    label: Benutzer-Filter
+    type: text
+    default: '(&(sAMAccountName={user}))'
+    help: '{user} wird durch den eingegebenen Benutzernamen ersetzt. Anzeigename kommt aus displayName, E-Mail aus mail.'
+  - key: DOCKER_MTU
+    label: Docker-MTU (optional)
+    type: number
+    min: 1280
+    max: 9000
+    help: Nur bei kleinerer Internet-MTU setzen (z. B. 1492 bei PPPoE).
+ports:
+  - port: "{WEB_PORT}"
+    proto: tcp
+    label: BookStack (HTTP)
+install: install.sh
+updates:
+  script: update.sh
+  installed_version: "docker inspect --format '{{index .Config.Labels \"build_version\"}}' bookstack | grep -oE 'v[0-9]+(\\.[0-9]+)+' | head -n1"
+  latest_version:
+    url: https://codeberg.org/api/v1/repos/bookstack/bookstack/releases/latest
+    json: tag_name
+healthcheck:
+  url: "http://{ip}:{WEB_PORT}/login"
+  timeout: 600
+proxy:
+  url: "http://{ip}:{WEB_PORT}"
+  subdomain: wiki
+  domain_param: APP_URL
+access:
+  url: "{ACCESS_URL}"
+  user: ""
+notes: |
+  {LOGIN_HINT}
+  BookStack leitet immer auf {ACCESS_URL} weiter – richte zuerst den Reverse Proxy auf http://{ip}:{WEB_PORT} ein. HTTPS kommt über den Proxy.
+  Daten: /opt/bookstack (Uploads, Einstellungen, Datenbank) – vor jedem Update legt ProxApps einen Snapshot an.

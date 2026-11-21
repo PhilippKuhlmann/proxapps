@@ -9,6 +9,7 @@ use App\Services\Deploy\ContainerManager;
 use App\Services\Deploy\DeploymentLogger;
 use App\Services\Proxmox\ProxmoxClient;
 use App\Services\Ssh\SshRunner;
+use App\Support\PortProbe;
 use App\Support\Settings;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -144,10 +145,19 @@ class UpdateRunner
             // 5. verify ----------------------------------------------------------------
             $this->begin('u_verify');
             $url = $app ? (string) ($app->healthcheck['url'] ?? '') : '';
+            $context = ['ip' => $d->ip, 'hostname' => $d->hostname, 'vmid' => $d->vmid]
+                + (array) (((array) $d->spec)['params'] ?? []);
+            $tcp = $app ? (string) ($app->healthcheck['tcp'] ?? '') : '';
             if ($url !== '') {
-                $context = ['ip' => $d->ip, 'hostname' => $d->hostname, 'vmid' => $d->vmid]
-                    + (array) (((array) $d->spec)['params'] ?? []);
                 $this->healthCheck(Catalog::render($url, $context), (int) ($app->healthcheck['timeout'] ?? 120));
+            } elseif ($tcp !== '') {
+                $target = Catalog::render($tcp, $context);
+                $hp = PortProbe::parse($target);
+                if ($hp === null || ! PortProbe::wait($hp[0], $hp[1], (int) ($app->healthcheck['timeout'] ?? 120),
+                    (float) config('proxapps.retry_interval', 3))) {
+                    throw new UpdateException("Port {$target} nimmt nach dem Update keine Verbindungen an.");
+                }
+                $this->log("Port {$target} erreichbar – Dienst läuft.");
             } else {
                 $this->log('Keine Funktionsprüfung definiert.');
             }

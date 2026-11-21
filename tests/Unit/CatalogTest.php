@@ -13,7 +13,8 @@ class CatalogTest extends TestCase
         $catalog = app(Catalog::class);
         $this->assertSame([], $catalog->errors());
         $ids = array_map(fn ($app) => $app->id, array_values($catalog->all()));
-        foreach (['adguard-home', 'nextcloud-aio', 'vaultwarden', 'node-red', 'paperless-ngx', 'immich'] as $id) {
+        foreach (['adguard-home', 'nextcloud-aio', 'vaultwarden', 'node-red', 'paperless-ngx', 'immich',
+            'rustdesk-server', 'authentik', 'bookstack', 'forgejo', 'jellyfin', 'stirling-pdf'] as $id) {
             $this->assertContains($id, $ids);
         }
 
@@ -21,11 +22,23 @@ class CatalogTest extends TestCase
             $id = $app->id;
             $this->assertNotNull($app->iconPath, "{$id}: icon");
             $this->assertNotSame([], $app->healthcheck, "{$id}: healthcheck");
-            // PK95 Core puts every app with a web interface behind the proxy.
-            $this->assertMatchesRegularExpression('~^(https?://\{ip\}:\{[A-Z_]+\}|https?://\{ip\}:\d+|\{[A-Z_]+\})$~', $app->proxy['url'] ?? '', "{$id}: proxy.url");
-            $this->assertMatchesRegularExpression('~^[a-z0-9-]+$~', $app->proxy['subdomain'] ?? '', "{$id}: proxy.subdomain");
+            if (! empty($app->healthcheck['tcp'])) {
+                $this->assertMatchesRegularExpression('~^\{ip\}:(\d+|\{[A-Z_]+\})$~', (string) $app->healthcheck['tcp'], "{$id}: healthcheck.tcp");
+            }
+            // PK95 Core puts every app with a web interface behind the proxy. Apps without one
+            // (checked by TCP port, e.g. RustDesk) are reached directly and have no proxy block.
+            if ($app->proxy !== [] || empty($app->healthcheck['tcp'])) {
+                $this->assertMatchesRegularExpression('~^(https?://\{ip\}:\{[A-Z_]+\}|https?://\{ip\}:\d+|\{[A-Z_]+\})$~', $app->proxy['url'] ?? '', "{$id}: proxy.url");
+                $this->assertMatchesRegularExpression('~^[a-z0-9-]+$~', $app->proxy['subdomain'] ?? '', "{$id}: proxy.subdomain");
+            }
             if (isset($app->proxy['domain_param'])) {
                 $this->assertNotNull($app->param($app->proxy['domain_param']), "{$id}: proxy.domain_param");
+            }
+            // Generated secrets must never end up in plain spec params.
+            foreach ($app->parameters as $p) {
+                if ($p['generate']) {
+                    $this->assertSame('password', $p['type'], "{$id}: generated parameter {$p['key']} must be a password");
+                }
             }
             // The scripts run with "set -euo pipefail" over SSH: they must at least parse.
             foreach (['install' => $app->installScript, 'update' => (string) ($app->updates['script'] ?? '')] as $kind => $script) {

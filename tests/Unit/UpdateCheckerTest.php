@@ -53,7 +53,7 @@ class UpdateCheckerTest extends TestCase
 
         $d->refresh();
         $this->assertSame('v0.107.79', $d->app_version);
-        $this->assertSame('v0.107.80', $d->latest_version);
+        $this->assertSame('0.107.80', $d->latest_version, 'release tags are stored as bare numbers');
         $this->assertSame(7, $d->os_updates);
         $this->assertNull($d->update_check_error);
         $this->assertNotNull($d->updates_checked_at);

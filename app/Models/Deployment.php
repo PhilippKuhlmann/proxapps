@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PortProbe;
 use Database\Factories\DeploymentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -109,7 +110,7 @@ class Deployment extends Model
     public function appUpdateAvailable(): bool
     {
         return $this->latest_version !== null && $this->app_version !== null
-            && ltrim($this->latest_version, 'vV') !== ltrim($this->app_version, 'vV');
+            && PortProbe::normalizeVersion($this->latest_version) !== PortProbe::normalizeVersion($this->app_version);
     }
 
     /**

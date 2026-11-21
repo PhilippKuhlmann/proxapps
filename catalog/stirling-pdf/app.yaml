@@ -1,0 +1,89 @@
+id: stirling-pdf
+name: Stirling-PDF
+summary: PDF-Werkzeugkasten im Browser – zusammenfügen, teilen, OCR, umwandeln.
+description: |
+  Stirling-PDF bündelt über 50 PDF-Werkzeuge in einer Weboberfläche: Seiten zusammenfügen,
+  teilen, drehen und sortieren, komprimieren, Texterkennung (OCR), Office- und Bild-Konvertierung,
+  Signaturen, Schwärzen und Wasserzeichen. Die Dateien verlassen dein Netz nicht. ProxApps
+  installiert das offizielle „fat“-Image (alle Funktionen, OCR Deutsch und Englisch) und richtet
+  auf Wunsch eine Anmeldung mit Admin-Konto ein.
+category: Produktivität
+version: latest-fat
+website: https://docs.stirlingpdf.com
+source: https://github.com/Stirling-Tools/Stirling-PDF
+hostname: stirling-pdf
+os:
+  template: debian-13-standard
+resources:
+  cores: 2
+  memory: 4096
+  swap: 1024
+  disk: 16
+lxc:
+  unprivileged: true
+  nesting: true
+  onboot: true
+tags: [pdf, ocr, docker]
+parameters:
+  - key: LOGIN_ENABLED
+    label: Anmeldung verlangen
+    type: boolean
+    default: true
+    help: Aus = jeder im Netz kann die Werkzeuge ohne Konto nutzen.
+  - key: ADMIN_USER
+    label: Admin-Benutzer
+    type: text
+    default: admin
+    required: true
+    pattern: '^[A-Za-z0-9._@-]{1,64}$'
+  - key: ADMIN_PASS
+    label: Admin-Passwort
+    type: password
+    required: true
+    generate: true
+    min_length: 12
+    help: Leer lassen, um ein sicheres Passwort zu erzeugen. Nur mit Anmeldung nötig.
+  - key: PUBLIC_URL
+    label: Öffentliche Adresse (optional)
+    type: text
+    pattern: '^https?://[A-Za-z0-9.-]+(:[0-9]+)?$'
+    help: z. B. https://pdf.example.de – unter dieser Domain veröffentlicht PK95 Core Stirling-PDF am Reverse Proxy.
+  - key: WEB_PORT
+    label: Port
+    type: number
+    default: 8080
+    min: 1024
+    max: 65535
+    help: HTTP-Port im Container-LXC (Ziel für den Reverse Proxy).
+  - key: DOCKER_MTU
+    label: Docker-MTU (optional)
+    type: number
+    min: 1280
+    max: 9000
+    help: Nur bei kleinerer Internet-MTU setzen (z. B. 1492 bei PPPoE).
+ports:
+  - port: "{WEB_PORT}"
+    proto: tcp
+    label: Stirling-PDF (HTTP)
+install: install.sh
+updates:
+  script: update.sh
+  installed_version: "docker inspect --format '{{index .Config.Labels \"org.opencontainers.image.version\"}}' stirling-pdf | sed 's/-fat$//'"
+  latest_version:
+    url: https://api.github.com/repos/Stirling-Tools/Stirling-PDF/releases/latest
+    json: tag_name
+healthcheck:
+  url: "http://{ip}:{WEB_PORT}/api/v1/info/status"
+  timeout: 600
+proxy:
+  url: "http://{ip}:{WEB_PORT}"
+  subdomain: pdf
+  domain_param: PUBLIC_URL
+access:
+  url: "http://{ip}:{WEB_PORT}/"
+  user: "{LOGIN_USER}"
+  password_param: ADMIN_PASS
+notes: |
+  Mit Anmeldung: Konto oben (das Passwort gilt nur für die erste Anmeldung, ändere es danach unter „Kontoeinstellungen“). Ohne Anmeldung ist das Passwort ohne Bedeutung.
+  OCR für Deutsch und Englisch ist im Image enthalten. Große PDFs brauchen viel RAM – unter 2 GB bricht die Verarbeitung ab.
+  Daten: /opt/stirling-pdf (Einstellungen, Benutzer, Pipelines) – vor jedem Update legt ProxApps einen Snapshot an.

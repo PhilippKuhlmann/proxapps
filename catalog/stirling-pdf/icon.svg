@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Generic PDF document icon, not the Stirling-PDF logo -->
+  <rect width="64" height="64" rx="14" fill="#b91c1c"/>
+  <path d="M20 10h17l9 9v33a2 2 0 0 1-2 2H20a2 2 0 0 1-2-2V12a2 2 0 0 1 2-2z" fill="#fff"/>
+  <path d="M37 10v9h9" fill="#fecaca"/>
+  <text x="32" y="44" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#b91c1c">PDF</text>
+</svg>

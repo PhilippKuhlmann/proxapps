@@ -1,0 +1,76 @@
+id: rustdesk-server
+name: RustDesk Server
+summary: Eigener ID- und Relay-Server für RustDesk-Fernwartung.
+description: |
+  RustDesk ist eine quelloffene Fernwartungs-Software (ähnlich TeamViewer oder AnyDesk). Mit dem
+  eigenen Server laufen Vermittlung (hbbs) und Relay (hbbr) über deine Infrastruktur statt über
+  die öffentlichen RustDesk-Server. ProxApps installiert die freie Server-Version (OSS) aus dem
+  offiziellen Image rustdesk/rustdesk-server und zeigt dir nach dem Ausrollen Server-Adresse und
+  öffentlichen Schlüssel für die Clients.
+category: Fernwartung
+version: "1"
+website: https://rustdesk.com/docs/de/self-host/
+source: https://github.com/rustdesk/rustdesk-server
+hostname: rustdesk
+os:
+  template: debian-13-standard
+resources:
+  cores: 1
+  memory: 512
+  swap: 512
+  disk: 4
+lxc:
+  unprivileged: true
+  nesting: true
+  onboot: true
+tags: [rustdesk, fernwartung, docker]
+parameters:
+  - key: RELAY_HOST
+    label: Öffentliche Adresse (optional)
+    type: text
+    pattern: '^[A-Za-z0-9.-]+(:[0-9]+)?$'
+    help: >-
+      Hostname oder IP, unter der die Clients den Server erreichen (z. B. rustdesk.example.de).
+      Leer = IP des Containers. RustDesk läuft nicht über einen Reverse Proxy: die Ports
+      21115–21119/TCP und 21116/UDP müssen direkt erreichbar sein (für Zugriff von außen per
+      Portweiterleitung).
+ports:
+  - port: "21115"
+    proto: tcp
+    label: NAT-Typ-Test (hbbs)
+  - port: "21116"
+    proto: tcp
+    label: ID-Server / TCP-Lochstanzen (hbbs)
+  - port: "21116"
+    proto: udp
+    label: ID-Registrierung und Heartbeat (hbbs)
+  - port: "21117"
+    proto: tcp
+    label: Relay (hbbr)
+  - port: "21118"
+    proto: tcp
+    label: Web-Client-Unterstützung (hbbs)
+  - port: "21119"
+    proto: tcp
+    label: Web-Client-Unterstützung (hbbr)
+install: install.sh
+updates:
+  script: update.sh
+  installed_version: "docker inspect --format '{{index .Config.Labels \"org.opencontainers.image.version\"}}' hbbs"
+  latest_version:
+    url: https://api.github.com/repos/rustdesk/rustdesk-server/releases/latest
+    json: tag_name
+# No web interface: the ID server port must accept connections.
+healthcheck:
+  tcp: "{ip}:21116"
+  timeout: 180
+access:
+  url: ""
+  user: ""
+notes: |
+  Trage in jedem RustDesk-Client unter Einstellungen → Netzwerk → ID/Relay-Server ein:
+  ID-Server: {SERVER_ADDRESS}
+  Relay-Server: {SERVER_ADDRESS}
+  Key: {PUBLIC_KEY}
+  Die Ports 21115–21119/TCP und 21116/UDP müssen direkt erreichbar sein – für Zugriff aus dem Internet per Portweiterleitung, nicht über einen Reverse Proxy. Port 21114 (Web-Konsole) gibt es nur in RustDesk Server Pro.
+  Schlüssel und Datenbank: /opt/rustdesk/data im Container – vor jedem Update legt ProxApps einen Snapshot an.
