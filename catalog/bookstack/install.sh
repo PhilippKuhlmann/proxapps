@@ -99,7 +99,8 @@ services:
       MARIADB_PASSWORD: \${DB_PASS}
       MARIADB_AUTO_UPGRADE: "1"
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      # TCP ping as the app user: only the final server listens on TCP (not the init server).
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -u bookstack --password=\$\$MARIADB_PASSWORD --silent"]
       interval: 10s
       timeout: 5s
       retries: 10

@@ -14,6 +14,11 @@ on:
 permissions:
   contents: read
 
+# "bash" (unlike the default "bash -e") adds pipefail: "install.sh | tee" must fail with install.sh.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   shellcheck:
     runs-on: ubuntu-24.04
