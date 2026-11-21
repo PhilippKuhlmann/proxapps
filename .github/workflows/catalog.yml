@@ -63,7 +63,7 @@ jobs:
             params: |
               APP_URL=http://127.0.0.1:6875
             check: |
-              curl -sf http://127.0.0.1:6875/login | grep -qi 'bookstack'
+              curl -sf -o "$RUNNER_TEMP/login.html" http://127.0.0.1:6875/login && grep -qi bookstack "$RUNNER_TEMP/login.html"
               grep -q '^PROXAPPS_VAR:ACCESS_URL=http://127.0.0.1:6875/$' "$RUNNER_TEMP/install.log"
           - app: forgejo
             params: |

@@ -80,7 +80,7 @@ docker compose --env-file proxapps.env pull -q
 echo "==> Starte Stirling-PDF"
 docker compose --env-file proxapps.env up -d
 
-up() { curl -sf --max-time 5 "http://127.0.0.1:${WEB_PORT}/api/v1/info/status" 2>/dev/null | grep -q UP; }
+up() { local s; s="$(curl -sf --max-time 5 "http://127.0.0.1:${WEB_PORT}/api/v1/info/status" 2>/dev/null || true)"; [[ "$s" == *UP* ]]; }
 for _ in $(seq 1 120); do up && break; sleep 3; done
 up || { echo "Stirling-PDF antwortet nicht" >&2; docker compose --env-file proxapps.env logs --tail 40 >&2; exit 1; }
 

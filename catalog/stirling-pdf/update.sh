@@ -7,7 +7,7 @@ cd "$DIR"
 . ./proxapps.env
 
 version() { docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' stirling-pdf 2>/dev/null || true; }
-up() { curl -sf --max-time 5 "http://127.0.0.1:${WEB_PORT}/api/v1/info/status" 2>/dev/null | grep -q UP; }
+up() { local s; s="$(curl -sf --max-time 5 "http://127.0.0.1:${WEB_PORT}/api/v1/info/status" 2>/dev/null || true)"; [[ "$s" == *UP* ]]; }
 
 echo "==> Installiert: $(version)"
 docker compose --env-file proxapps.env pull -q

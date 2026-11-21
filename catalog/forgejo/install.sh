@@ -99,7 +99,7 @@ up() { curl -sf -o /dev/null --max-time 3 "http://127.0.0.1:${WEB_PORT}/api/heal
 for _ in $(seq 1 100); do up && break; sleep 3; done
 up || { echo "Forgejo antwortet nicht" >&2; docker compose --env-file proxapps.env logs --tail 40 >&2; exit 1; }
 
-if docker exec -u git forgejo forgejo admin user list --admin 2>/dev/null | awk 'NR>1 {print $2}' | grep -qxF "$ADMIN_USER"; then
+if docker exec -u git forgejo forgejo admin user list --admin 2>/dev/null | awk -v u="$ADMIN_USER" 'NR>1 && $2 == u {f=1} END {exit !f}'; then
   echo "==> Admin ${ADMIN_USER} gibt es schon"
 else
   echo "==> Lege den Admin ${ADMIN_USER} an"
