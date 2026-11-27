@@ -45,7 +45,7 @@ class CoreModeTest extends FeatureTestCase
         $this->getJson('/core/manifest')->assertUnauthorized();
         $this->withToken('falsch-falsch-falsch-falsch-falsch-falsch')->getJson('/core/manifest')->assertUnauthorized();
         $this->withToken(self::TOKEN)->getJson('/core/manifest')->assertOk()
-            ->assertJson(['id' => 'proxapps', 'protocol' => 1, 'version' => '1.0.0'])
+            ->assertJson(['id' => 'proxapps', 'name' => 'PK95 ProxApps', 'protocol' => 1, 'version' => '1.0.0'])
             ->assertJsonPath('menu.2.key', 'deployments');
         $this->withToken(self::TOKEN)->postJson('/core/backup/prepare')->assertNoContent();
         $this->withoutToken()->postJson('/api/bridge/connections', ['mount' => []])->assertUnauthorized();

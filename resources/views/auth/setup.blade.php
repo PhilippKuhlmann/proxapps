@@ -5,7 +5,7 @@
             @csrf
 
             <p class="mb-6 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                Willkommen bei ProxApps. Lege hier dein Konto an – danach verbindest du deinen Proxmox-Server.
+                Willkommen bei PK95 ProxApps. Lege hier dein Konto an – danach verbindest du deinen Proxmox-Server.
             </p>
 
             @if ($needsCode ?? false)

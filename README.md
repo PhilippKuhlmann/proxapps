@@ -1,4 +1,4 @@
-# ProxApps
+# PK95 ProxApps
 
 Weboberfläche im DokuVault-Design, mit der du Apps per Klick als **Debian-LXC** auf deinem
 **Proxmox VE** (Einzelserver oder Cluster) ausrollst. Jede App bringt empfohlene Ressourcen mit, die du

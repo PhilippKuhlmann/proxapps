@@ -21,7 +21,7 @@
 
         <a href="{{ route('apps.index') }}"
             class="mt-10 pt-3 text-center text-xs text-gray-400 border-t border-gray-200 hover:text-cerulean-600 dark:border-gray-700 dark:text-gray-500">
-            ProxApps v{{ config('proxapps.version', '1.0.0') }}
+            PK95 ProxApps v{{ config('proxapps.version', '1.0.0') }}
         </a>
     </div>
 </aside>

@@ -15,7 +15,7 @@ class CoreModeBlocksWeb
     public function handle(Request $request, Closure $next): Response
     {
         if (Core::enabled()) {
-            return response('ProxApps wird über PK95 Core verwaltet.', 404, ['Content-Type' => 'text/plain; charset=UTF-8']);
+            return response('PK95 ProxApps wird über PK95 Core verwaltet.', 404, ['Content-Type' => 'text/plain; charset=UTF-8']);
         }
 
         return $next($request);

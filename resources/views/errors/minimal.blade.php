@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title') · ProxApps</title>
+    <title>@yield('title') · PK95 ProxApps</title>
     <link rel="icon" href="{{ asset('img/logo.svg') }}" type="image/svg+xml">
     <script>
         if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -26,7 +26,7 @@
             <div class="px-6 py-8">
                 <div class="mb-6 flex items-center gap-3">
                     <img src="{{ asset('img/logo.svg') }}" alt="" width="40" height="40" class="h-10 w-10" />
-                    <span class="font-CoconPro text-lg uppercase tracking-[0.13em] text-chathams-blue-800 dark:text-gray-100">ProxApps</span>
+                    <span class="font-CoconPro text-lg uppercase tracking-[0.13em] text-chathams-blue-800 dark:text-gray-100">PK95 ProxApps</span>
                 </div>
                 <div class="text-2xl font-CoconPro text-gray-900 dark:text-gray-100">@yield('title')</div>
                 <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
