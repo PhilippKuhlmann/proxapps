@@ -21,6 +21,8 @@ class PagesTest extends FeatureTestCase
     public function test_dashboard_without_connection_shows_onboarding(): void
     {
         $this->get('/')->assertOk()
+            ->assertSee('· PK95 ProxApps</title>', false)
+            ->assertSee('PK95 ProxApps v', false)
             ->assertSee('Dashboard')
             ->assertSee('Noch keine Proxmox-Verbindung')
             ->assertSee('Apps im Katalog')

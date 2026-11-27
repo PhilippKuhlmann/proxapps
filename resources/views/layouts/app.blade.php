@@ -9,7 +9,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ $title ? $title.' · ProxApps' : 'ProxApps' }}</title>
+    <title>{{ $title ? $title.' · PK95 ProxApps' : 'PK95 ProxApps' }}</title>
     <link rel="icon" href="{{ asset('img/logo.svg') }}" type="image/svg+xml">
 
     <script>

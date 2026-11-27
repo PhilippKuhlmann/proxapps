@@ -30,7 +30,7 @@
             <h1 class="mb-8 flex items-center gap-3">
                 <img src="{{ asset('img/logo.svg') }}" alt="" width="44" height="44" class="h-11 w-11 shrink-0" />
                 <span class="font-CoconPro text-lg uppercase tracking-[0.13em] text-chathams-blue-800 sm:text-xl dark:text-gray-100">
-                    ProxApps
+                    PK95 ProxApps
                 </span>
             </h1>
 

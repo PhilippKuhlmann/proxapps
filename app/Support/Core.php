@@ -79,7 +79,7 @@ class Core
     {
         return [
             'id' => 'proxapps',
-            'name' => 'ProxApps',
+            'name' => 'PK95 ProxApps',
             'version' => (string) config('proxapps.version'),
             'protocol' => 1,
             'icon' => 'server',
